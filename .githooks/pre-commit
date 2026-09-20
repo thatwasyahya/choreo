@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Refuse any commit that carries something looking like a secret.
+#
+# Operating rule 6: no secret in clear text in the repository, ever. The
+# repository is public (decision D-008), so a leak is immediate and permanent —
+# rewriting history afterwards does not unpublish anything.
+#
+# Installed by scripts/bootstrap-dev.sh, which points core.hooksPath here.
+
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is missing. Run ./scripts/bootstrap-dev.sh" >&2
+  exit 1
+fi
+
+# --redact: never print the secret itself, not even in a local terminal.
+if ! gitleaks git --staged --redact; then
+  cat >&2 <<'MSG'
+
+pre-commit: commit refused, a secret was detected above.
+
+Take the value out of the file and put it in .env (ignored by git), then add a
+placeholder to .env.example. If this is a false positive, document it in
+.gitleaksignore with the reason — never with --no-verify.
+MSG
+  exit 1
+fi

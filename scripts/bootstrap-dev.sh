@@ -13,7 +13,9 @@
 set -euo pipefail
 
 GO_VERSION="1.27.1"
+GITLEAKS_VERSION="8.30.1"
 GO_ROOT="${HOME}/.local/go"
+LOCAL_BIN="${HOME}/.local/bin"
 FLUTTER_ROOT="${HOME}/flutter"
 ANDROID_SDK="${HOME}/Android/Sdk"
 ENV_FILE="${HOME}/.config/choreo/dev-env.sh"
@@ -66,6 +68,33 @@ else
 fi
 
 # --------------------------------------------------------------------------
+say "gitleaks ${GITLEAKS_VERSION}"
+
+mkdir -p "${LOCAL_BIN}"
+if [ -x "${LOCAL_BIN}/gitleaks" ] && "${LOCAL_BIN}/gitleaks" version | grep -q "${GITLEAKS_VERSION}"; then
+  ok "already installed in ${LOCAL_BIN}"
+else
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "${tmp}"' EXIT
+  echo "    downloading"
+  curl -fsSL -o "${tmp}/gitleaks.tar.gz" \
+    "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+  tar -C "${LOCAL_BIN}" -xzf "${tmp}/gitleaks.tar.gz" gitleaks
+  chmod +x "${LOCAL_BIN}/gitleaks"
+  ok "installed in ${LOCAL_BIN}"
+fi
+
+# The hook only guards this clone: core.hooksPath is local configuration, it
+# does not travel with a push. Anyone cloning has to run this script too.
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  git config core.hooksPath .githooks
+  chmod +x .githooks/* 2>/dev/null || true
+  ok "core.hooksPath pointed at .githooks"
+else
+  warn "not inside a git repository — pre-commit hook not wired"
+fi
+
+# --------------------------------------------------------------------------
 say "Shell environment"
 
 mkdir -p "$(dirname "${ENV_FILE}")"
@@ -78,7 +107,7 @@ export ANDROID_SDK_ROOT="\${ANDROID_HOME}"
 
 # Prepended, not appended: WSL inherits the Windows PATH, which may carry a
 # Windows Flutter SDK that cannot run under Linux. Ours has to come first.
-export PATH="\${GOROOT}/bin:\${GOPATH}/bin:${FLUTTER_ROOT}/bin:\${ANDROID_HOME}/platform-tools:\${ANDROID_HOME}/cmdline-tools/latest/bin:\${PATH}"
+export PATH="${LOCAL_BIN}:\${GOROOT}/bin:\${GOPATH}/bin:${FLUTTER_ROOT}/bin:\${ANDROID_HOME}/platform-tools:\${ANDROID_HOME}/cmdline-tools/latest/bin:\${PATH}"
 EOF
 ok "written to ${ENV_FILE}"
 
@@ -108,5 +137,6 @@ printf '    dart     : %s\n' "$(dart --version 2>&1 | head -1 || echo 'unavailab
 printf '    adb      : %s\n' "$(adb version 2>&1 | head -1 || echo 'unavailable')"
 printf '    docker   : %s\n' "$(docker --version 2>&1 | head -1 || echo 'unavailable')"
 printf '    java     : %s\n' "$(java -version 2>&1 | head -1 || echo 'unavailable')"
+printf '    gitleaks : %s\n' "$(gitleaks version 2>&1 | head -1 || echo 'unavailable')"
 
 say "Done — open a new shell, or run: . ${ENV_FILE}"
