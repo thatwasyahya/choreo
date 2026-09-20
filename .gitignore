@@ -1,0 +1,49 @@
+# Secrets — never anything real in the repository.
+# Only .env.example is versioned.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!**/testdata/**/*.key
+secrets/
+
+# Go
+/server/bin/
+*.test
+*.out
+coverage.*
+
+# Dart / Flutter
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.g.dart
+*.freezed.dart
+pubspec.lock.bak
+
+# Android
+/app/android/local.properties
+/app/android/.gradle/
+/app/android/key.properties
+*.jks
+*.keystore
+
+# iOS (phase 5, D-004)
+/app/ios/Pods/
+/app/ios/.symlinks/
+
+# Docker / local data
+/deploy/data/
+/deploy/postgres-data/
+
+# Editors and OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*~
+*.swp
