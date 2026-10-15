@@ -19,9 +19,19 @@ import (
 //nolint:gochecknoglobals // embedded at compile time, read-only
 var migrations embed.FS
 
-// Store is the server's access to PostgreSQL.
+// Store is the server's access to household-scoped data.
+//
+// Every exported method takes householdID right after the context, and an
+// architecture test fails the build if one does not: the tenant cannot be
+// forgotten if the compiler asks for it. See internal/arch.
 type Store struct {
 	pool *pgxpool.Pool
+
+	// Identity is the non-tenant half: accounts, devices and sessions exist
+	// before any household and can belong to several, so the householdID rule
+	// does not apply there. A field rather than a method, so the distinction is
+	// visible at every call site.
+	Identity *Identity
 }
 
 // Open connects and verifies the connection before returning, so a bad
@@ -37,7 +47,7 @@ func Open(ctx context.Context, url string) (*Store, error) {
 		return nil, fmt.Errorf("pinging postgres: %w", err)
 	}
 
-	return &Store{pool: pool}, nil
+	return &Store{pool: pool, Identity: &Identity{pool: pool}}, nil
 }
 
 // Ping reports whether PostgreSQL is reachable right now.
