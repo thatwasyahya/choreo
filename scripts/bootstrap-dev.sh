@@ -14,6 +14,7 @@ set -euo pipefail
 
 GO_VERSION="1.27.1"
 GITLEAKS_VERSION="8.30.1"
+GOLANGCI_VERSION="2.13.2"
 GO_ROOT="${HOME}/.local/go"
 LOCAL_BIN="${HOME}/.local/bin"
 FLUTTER_ROOT="${HOME}/flutter"
@@ -65,6 +66,24 @@ if [ -x "${FLUTTER_ROOT}/bin/flutter" ]; then
 else
   warn "no Linux SDK in ${FLUTTER_ROOT}"
   warn "install it there — never use a Windows SDK through /mnt/c (decision D-011)"
+fi
+
+# --------------------------------------------------------------------------
+say "golangci-lint ${GOLANGCI_VERSION}"
+
+mkdir -p "${LOCAL_BIN}"
+if [ -x "${LOCAL_BIN}/golangci-lint" ] && "${LOCAL_BIN}/golangci-lint" --version | grep -q "${GOLANGCI_VERSION}"; then
+  ok "already installed in ${LOCAL_BIN}"
+else
+  tmp="$(mktemp -d)"
+  dir="golangci-lint-${GOLANGCI_VERSION}-linux-amd64"
+  echo "    downloading"
+  curl -fsSL -o "${tmp}/golangci.tar.gz" \
+    "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_VERSION}/${dir}.tar.gz"
+  tar -C "${tmp}" -xzf "${tmp}/golangci.tar.gz"
+  install -m 0755 "${tmp}/${dir}/golangci-lint" "${LOCAL_BIN}/golangci-lint"
+  rm -rf "${tmp}"
+  ok "installed in ${LOCAL_BIN}"
 fi
 
 # --------------------------------------------------------------------------
