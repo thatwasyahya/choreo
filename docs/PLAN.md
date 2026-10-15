@@ -181,6 +181,158 @@ L0.9 ─── en parallèle de tout, du début à la fin de la phase
 
 ---
 
+## Phase 1 — Le noyau
+
+**C'est la phase qui fait ou casse le produit.** Tout le reste du projet est du travail
+ordinaire ; la synchronisation hors-ligne, non.
+
+**Objectif** : une tâche créée en mode avion sur un téléphone se retrouve sur un autre après
+reconnexion, et deux modifications concurrentes convergent selon les règles écrites.
+
+La conception est faite : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md) fixe le modèle de données, les
+points de terminaison et les règles de résolution, et `D-020` tranche ses neuf questions.
+Cette phase est un exercice d'**exécution**, pas de conception — sauf sur un point, voir L1.2.
+
+**Hors périmètre, explicitement** : récurrences et séries au-delà de l'invariant, catégories,
+étiquettes, rappels, listes de courses, rôles, rotation, mode enfant, points, mémos, invités,
+multi-foyers à l'écran. Tout cela a son schéma prêt et attend les phases 2 et 3.
+
+### Lots
+
+#### L1.1 — Le schéma serveur
+Les 13 tables de `SYNC_PROTOCOL.md` en migrations goose : `accounts`, `households`, `members`,
+`devices`, `device_cursors`, `tasks`, `series`, `completions`, `lists`, `list_items`, `tags`,
+`memos`, `notices`, `ops`. L'enveloppe de synchronisation (`rev`, `created_rev`, `field_revs`,
+`deleted_rev`, `updated_by`) est identique sur chaque table synchronisée — une seule forme, pas
+treize variantes.
+
+Les tables des phases ultérieures sont créées **maintenant**, vides : `household_id` partout et
+la frontière d'isolation posée dès le départ. L'ajouter après la mise en service voudrait dire
+reconstruire une frontière de sécurité en production.
+
+*Critère de sortie* : migration rejouable sur base vierge ; un test prouve qu'aucune requête du
+code ne peut lire une ligne d'un autre foyer.
+
+#### L1.2 — L'authentification : spécifier, puis implémenter
+**Le seul endroit où il reste à concevoir.** `D-009` tranche le mécanisme — identifiant et mot
+de passe argon2id, codes d'invitation, code de secours, aucun e-mail — mais **aucun point de
+terminaison n'est spécifié**, ni dans le cahier des charges ni dans le protocole, qui se
+contente d'exiger un `Authorization: Bearer`.
+
+À écrire avant de coder : création de compte, session et rafraîchissement, création d'un foyer,
+émission et acceptation d'un code d'invitation, enregistrement d'un appareil, parcours de
+récupération. Plus les paramètres argon2id, les durées de vie des jetons, et ce qui arrive à un
+appareil révoqué.
+
+*Critère de sortie* : les endpoints documentés puis implémentés, un test par parcours, et
+**aucun secret dans un journal** — ni mot de passe, ni jeton, ni code de secours.
+
+#### L1.3 — `POST /sync` côté serveur
+**Le lot central.** Verrou de ligne sur le foyer, `change_seq` incrémenté dans la transaction
+qui écrit, **une transaction par opération** et non par lot, le vocabulaire d'opérations
+(`create`, `set_fields`, `delete`, `restore`, `complete`, `uncomplete`, et les transitions de
+série), la table des règles de résolution appliquée telle qu'elle est écrite, et un résultat
+par opération dans l'ordre de la requête.
+
+Le vocabulaire d'opérations est un **engagement de protocole** : en ajouter un plus tard est un
+incrément de version. Le fixer ici, pas en chemin.
+
+*Critère de sortie* : un test par ligne de la table des règles de résolution. Pas « des tests
+sur la fusion » — un par règle, nommé d'après elle.
+
+#### L1.4 — Les notices et les mutations refusées
+Une opération refusée ne disparaît jamais en silence : elle devient une ligne `notices` côté
+serveur, donc elle suit l'utilisateur sur ses autres appareils et survit à une réinstallation.
+Et le client ne réécrit **jamais** une `base_rev` périmée vers la valeur du serveur.
+
+*Critère de sortie* : une opération refusée après trois jours hors-ligne produit une notice
+lisible, et aucune donnée saisie n'est perdue.
+
+#### L1.5 — `GET /snapshot` et le chemin `410`
+Reconstruction complète de la réplique quand un curseur est tombé sous
+`purge_horizon_seq`. **La remise à zéro ne touche pas à la boîte d'envoi** : « ton curseur a
+expiré » ne peut pas vouloir dire « tes quatorze modifications hors-ligne sont perdues ».
+
+*Critère de sortie* : un client dont le curseur a expiré se rebâtit **et** conserve sa boîte
+d'envoi.
+
+#### L1.6 — Le long poll
+`wait_ms`, un `LISTEN choreo_changes` dédié pour tout le processus, `NOTIFY` dans la
+transaction qui valide. **Le gestionnaire relâche sa connexion `pgx` avant de se garer** : un
+appel en attente est une goroutine, jamais une connexion `idle in transaction`. C'est ce qui
+tient le plafond de coût de `D-005`.
+
+*Critère de sortie* : cent appels garés simultanément ne consomment aucune connexion du pool.
+
+#### L1.7 — Le schéma client Drift
+Les miroirs du domaine, plus `outbox`, `sync_cursors`, `device_identity`, `notices`,
+`quarantine`. **Aucun moteur de fusion** : appliquer un changement, c'est remplacer la ligne si
+la révision entrante est supérieure.
+
+*Critère de sortie* : appliquer deux fois la même page de changements donne le même état, et
+l'ordre d'arrivée n'a aucune incidence.
+
+#### L1.8 — La boucle de synchronisation côté client
+Vidange de la boîte d'envoi, avance du curseur **uniquement sur ce qui est engagé dans
+SQLite**, adoption des états autoritatifs, vidage de `pending_fields`.
+
+*Critère de sortie* : un plantage au milieu d'une page reprend où il s'était arrêté, sans page
+partielle à l'écran.
+
+#### L1.9 — Les écrans
+Créer ou rejoindre un foyer, la liste des membres, la liste des tâches, et créer, cocher,
+renommer, supprimer une tâche. Plus le plateau « À revoir ».
+
+Le principe 1 est un critère, pas un souhait : **dix secondes pour créer une tâche, seul le
+titre obligatoire.** Et tout est lu dans Drift, jamais attendu du réseau.
+
+*Critère de sortie* : créer une tâche en moins de dix secondes, à une main, en mode avion.
+
+#### L1.10 — La recette des sept cas
+Un test automatisé par cas du protocole, pilotant **deux clients simulés** contre un vrai
+PostgreSQL. Puis le même essai à la main sur deux appareils.
+
+*Critère de sortie* : les sept cas passent sans intervention.
+
+### Ordre
+
+```
+L1.1 ──► L1.2 ──► L1.3 ──┬──► L1.4 ──┐
+                         ├──► L1.5    ├──► L1.9 ──► L1.10
+                         └──► L1.6    │
+L1.7 ──► L1.8 ───────────────────────┘
+   (en parallèle de L1.3 dès que le schéma serveur est posé)
+```
+
+### Risques
+
+| Risque | Gravité | Parade |
+|---|---|---|
+| **Toute la complexité se concentre dans L1.3.** Un handler de synchronisation écrit « au feeling » dérive de la table des règles en une semaine | Élevée | Un test par règle, nommé d'après la règle. La table est la spécification, pas une illustration |
+| Le vocabulaire d'opérations grandit en chemin | Élevée | Il est figé en L1.3. En ajouter un est un incrément de version de protocole, pas une retouche |
+| **Pas de téléphone** : le critère de sortie réel demande deux appareils | Moyenne | L1.10 pilote deux clients simulés contre un vrai PostgreSQL ; l'essai à la main confirme, il ne découvre pas |
+| La frontière d'isolation ajoutée après coup | Moyenne | Posée en L1.1, testée en L1.1 |
+| Dérive de périmètre vers les séries, les listes, les rôles | Moyenne | Le hors-périmètre est écrit plus haut ; leur schéma existe et reste vide |
+| La CI n'a toujours jamais tourné | Faible | Dépend du dépôt distant, côté product owner |
+
+### Critères de sortie de la Phase 1
+
+- [ ] **L'essai décisif** : tâche créée en mode avion sur un client, retrouvée sur un autre
+      après reconnexion
+- [ ] Les **sept cas** du protocole passent en automatique
+- [ ] Un test par ligne de la table des règles de résolution
+- [ ] L'invariant « une seule occurrence ouverte par série » tient quand deux clients
+      hors-ligne ouvrent la suivante
+- [ ] Isolation entre foyers prouvée par un test
+- [ ] Compatibilité N-2 : un client simulé N-1 applique une ligne contenant un champ qu'il ne
+      connaît pas
+- [ ] Un curseur expiré se rebâtit sans perdre la boîte d'envoi
+- [ ] Cent long polls garés ne consomment aucune connexion du pool
+- [ ] Aucun secret dans les journaux
+- [ ] `make test`, `make lint` verts ; analyse Dart et `golangci-lint` à zéro
+
+---
+
 ## Actions attendues du product owner
 
 1. **Basculer l'adresse de commit** sur `users.noreply.github.com` avant la première poussée —
