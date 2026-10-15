@@ -2,8 +2,32 @@
 
 Mis à jour le 15 octobre 2026. À lire en premier pour reprendre à froid.
 
-**Phase en cours : 0 — Fondations.** Plan : [PLAN.md](PLAN.md). Arbitrages :
+**Phase en cours : 1 — Le noyau.** Plan : [PLAN.md](PLAN.md). Arbitrages :
 [DECISIONS.md](DECISIONS.md). Forme du système : [ARCHITECTURE.md](ARCHITECTURE.md).
+Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
+
+## Phase 1 — avancement
+
+| Lot | État |
+|---|---|
+| L1.1 schéma serveur | **fait**, et ses garanties prouvées en base |
+| L1.2 authentification | à spécifier puis implémenter — **le seul reste à concevoir** |
+| L1.3 `POST /sync` | le lot central, pas commencé |
+| L1.4 → L1.10 | pas commencés |
+
+**L1.1, vérifié contre un vrai PostgreSQL** — 14 tables, et quatre garanties structurelles
+éprouvées puis annulées :
+
+| | |
+|---|---|
+| Affectation inter-foyers | **refusée par la base** (clé étrangère composite) |
+| Deuxième occurrence ouverte sur une série | **refusée** (index unique partiel) |
+| Avance normale d'une série après clôture | **acceptée** — le garde-fou ne bloque pas le cas sain, qui est l'erreur classique de ce type d'index |
+| Même créneau de série deux fois, même clôturé | **refusé** |
+
+Plus deux tests d'architecture exigés par le protocole, qui échouent si une requête SQL
+apparaît hors de `internal/store`, ou si une méthode du magasin ne prend pas `householdID`
+juste après le contexte. Ils contraindront tout le code de L1.3 au moment où il s'écrira.
 
 | Lot | État |
 |---|---|
