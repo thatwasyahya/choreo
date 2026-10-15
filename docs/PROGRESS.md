@@ -11,9 +11,31 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 | Lot | État |
 |---|---|
 | L1.1 schéma serveur | **fait**, et ses garanties prouvées en base |
-| L1.2 authentification | **spécifiée** ([AUTH.md](AUTH.md)) · primitives et couche de stockage faites, testées contre PostgreSQL · **restent les points de terminaison HTTP** |
+| L1.2 authentification | **fait** — spécifié ([AUTH.md](AUTH.md)), implémenté, éprouvé de bout en bout |
 | L1.3 `POST /sync` | le lot central, pas commencé |
 | L1.4 → L1.10 | pas commencés |
+
+**L1.2 est terminé.** Les onze points de terminaison de `AUTH.md` répondent, et les règles
+qui comptent sont vérifiées par un test chacune, à travers HTTP :
+
+| Règle | Test |
+|---|---|
+| Un foyer dont on n'est pas membre → **`404`, jamais `403`** | et un foyer inexistant donne la **même** réponse |
+| Identifiant inconnu et mot de passe faux | **réponses identiques**, `invalid_credentials` |
+| Se déconnecter ≠ voir son appareil retiré | `unauthenticated` contre `device_revoked` — le second seul efface la réplique |
+| Un code d'invitation ne peut pas accorder `admin` | refusé par l'API **et** par la base |
+| Un membre non-admin ne peut pas inviter | `403 forbidden_role` — ici `403` est correct : il sait déjà qu'il est membre |
+| Le QR porte l'adresse du serveur | sinon un foyer auto-hébergé ne pourrait inviter personne |
+| Rejeu de *refresh* après réponse perdue | accordé dans la fenêtre de grâce |
+| La récupération révoque les autres appareils | et remet un code de secours neuf |
+
+Les 71 secondes de cette suite sont le coût réel d'argon2 à `m=19456` : c'est le signe que
+les tests passent par le vrai chemin et non par un raccourci.
+
+**Un réglage ajouté en route** : `CHOREO_PUBLIC_URL`. Le serveur ne peut pas déduire sa
+propre adresse d'une requête — l'en-tête `Host` est ce que l'appelant veut bien y mettre — et
+sans elle le lien derrière un QR code d'invitation est faux. En `prod`, le serveur refuse de
+démarrer s'il vaut encore `localhost`.
 
 **L1.1, vérifié contre un vrai PostgreSQL** — 14 tables, et quatre garanties structurelles
 éprouvées puis annulées :

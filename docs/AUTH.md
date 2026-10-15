@@ -207,6 +207,13 @@ présentant au mauvais serveur.
 choreo://join?s=https%3A%2F%2Fchoreo.example&c=ABCDEFGHJK
 ```
 
+**D'où un réglage ajouté pendant l'implémentation : `CHOREO_PUBLIC_URL`.** Le serveur ne peut
+pas déduire sa propre adresse d'une requête — l'en-tête `Host` est ce que l'appelant veut
+bien y mettre, et le déduire d'un en-tête transmis par un intermédiaire revient à laisser un
+client forger le lien d'invitation. En développement il vaut `http://localhost:8080` ; en
+`prod`, le serveur **refuse de démarrer** s'il contient encore `localhost`, parce qu'une
+invitation portant cette valeur enverrait les invités sur leur propre téléphone.
+
 ---
 
 ## Les points de terminaison
