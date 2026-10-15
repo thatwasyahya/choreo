@@ -57,7 +57,9 @@ prod-config: .env ## Check the production composition without starting anything
 
 .PHONY: migrate
 migrate: .env ## Apply pending migrations and exit
-	CHOREO_VERSION=$(VERSION) $(COMPOSE) run --rm server -migrate-only
+	# --build is not optional: migrations are embedded in the binary, so a stale
+	# image silently reports "no migrations to run".
+	CHOREO_VERSION=$(VERSION) $(COMPOSE) run --rm --build server -migrate-only
 
 .PHONY: db-reset
 db-reset: .env ## Destroy the database and rebuild it from the migrations
