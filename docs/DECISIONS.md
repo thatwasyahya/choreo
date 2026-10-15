@@ -318,3 +318,50 @@ Vérifié, et le protocole ne déplace pas le plafond de `D-005` :
 Le coût opérateur reste donc **0 € jusqu'à la Phase 2**, puis ~5 €/mois, inchangé. Et
 « gratuit pour les utilisateurs, pour toujours » reste intact : aucune de ces réponses
 n'introduit de service tiers, de publicité ni de palier payant.
+
+### D-021 — Authentification : jetons opaques, `device_id` frappé par le serveur · Ferme
+
+Spécifiée dans [`docs/AUTH.md`](AUTH.md), document séparé plutôt que section du protocole :
+les deux sujets changent pour des raisons différentes, et celui-ci doit pouvoir être relu
+seul. `D-009` avait tranché le mécanisme ; il manquait tout point de terminaison.
+
+*Les choix qui engagent* :
+
+- **Des jetons opaques de 32 octets, stockés hachés en sha256 — pas des JWT.** Le seul
+  avantage du JWT est de vérifier sans toucher la base, et cet avantage vaut **zéro** ici : le
+  protocole exige déjà une lecture à chaque requête, puisque l'appartenance au foyer se
+  vérifie contre une ligne `members` vivante à chaque appel. On aurait payé une bibliothèque
+  de crypto, une classe de failles connue (confusion d'algorithme, `alg: none`) et une
+  cérémonie de rotation de clés pour rien. En échange la révocation est immédiate.
+- **Le jeton de rafraîchissement est à usage unique et tourne.** Rejouer un jeton consommé
+  révoque tout l'appareil : on ne peut pas savoir si c'est le voleur ou la victime qui
+  rejoue, donc on ferme. Bruyant, et voulu — un faux positif coûte une saisie de mot de
+  passe, un faux négatif coûte le foyer.
+- **`device_id` est frappé par le serveur.** Il porte le curseur de synchronisation : un
+  client qui pourrait revendiquer celui d'un autre appareil corromprait sa réplique.
+- **argon2id m=19456, t=2, p=1**, paramètres embarqués au format PHC, donc relevables plus
+  tard sans invalider un seul compte.
+- **Un code d'invitation ne peut jamais accorder `admin`** — la contrainte `CHECK` l'interdit
+  en base. Un code qui fuite ne livre pas les clés du foyer.
+- **Codes en base32 Crockford**, sans `I`, `L`, `O` ni `U` : un code lu à voix haute n'est
+  jamais ambigu, et la saisie pardonne la casse, les tirets et les trois substitutions que
+  les gens font vraiment en recopiant.
+- **Limitation de débit en mémoire, assumée** : elle se réinitialise au redémarrage et ne
+  franchit pas une seconde instance. Écrit pour que ce soit un choix et non une surprise, à
+  revoir le jour où il y a deux serveurs.
+
+*Un plafond ajouté après coup, pour tenir la promesse de coût* : **au plus 4 calculs argon2id
+simultanés**. Sans lui, le plafond de `D-005` était une fiction — chaque calcul retient
+19 Mio, et les seaux sont par identifiant et par adresse, donc une tentative répartie sur
+beaucoup d'identifiants distincts passe les deux et arrive quand même d'un coup. Quatre cents
+tentatives simultanées réclameraient près de 8 Go sur une machine qui en a 4. Avec le
+plafond, le serveur ralentit sous inondation ; il ne meurt pas. Le calcul à vide servi aux
+identifiants inexistants prend un jeton lui aussi, sinon il suffirait d'envoyer des
+identifiants faux pour contourner la file.
+
+*Les deux questions ouvertes de `AUTH.md`, tranchées par la même délégation que `D-020`* :
+
+| | Question | Réponse | Pourquoi |
+|---|---|---|---|
+| **A1** | Durée du rafraîchissement | **180 jours** glissants, et non 60 | Le modèle de menace est un téléphone perdu, et c'est la révocation d'appareil qui y répond, pas l'expiration. Une tablette murale qu'on ne touche qu'au passage ne doit pas se déconnecter — le principe 2 ne survit pas à un grand-parent devant un écran de connexion |
+| **A2** | La récupération révoque-t-elle les autres appareils | **Oui**, défaut inchangé | Asymétrie décisive : se tromper en révoquant coûte une reconnexion, se tromper en ne révoquant pas laisse un voleur de code de secours cohabiter en silence. L'interface doit le dire avant de valider |

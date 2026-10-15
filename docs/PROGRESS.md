@@ -11,7 +11,7 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 | Lot | État |
 |---|---|
 | L1.1 schéma serveur | **fait**, et ses garanties prouvées en base |
-| L1.2 authentification | à spécifier puis implémenter — **le seul reste à concevoir** |
+| L1.2 authentification | **spécifiée** ([AUTH.md](AUTH.md)) · primitives faites et testées · points de terminaison à écrire |
 | L1.3 `POST /sync` | le lot central, pas commencé |
 | L1.4 → L1.10 | pas commencés |
 
@@ -28,6 +28,12 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 Plus deux tests d'architecture exigés par le protocole, qui échouent si une requête SQL
 apparaît hors de `internal/store`, ou si une méthode du magasin ne prend pas `householdID`
 juste après le contexte. Ils contraindront tout le code de L1.3 au moment où il s'écrira.
+
+**L1.2, les primitives** — `internal/auth`, sans HTTP ni SQL : argon2id au format PHC,
+jetons opaques, codes en base32 Crockford lisibles à voix haute, limitation de débit en
+mémoire, et un **plafond de 4 calculs argon2id simultanés** sans lequel la promesse de coût
+de `D-005` était une fiction. Le mécanisme est spécifié dans [AUTH.md](AUTH.md) et les choix
+structurants sont consignés en `D-021`. Restent les points de terminaison eux-mêmes.
 
 | Lot | État |
 |---|---|
