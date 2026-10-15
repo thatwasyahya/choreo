@@ -1,0 +1,22 @@
+# Only used by the `prod` compose profile. Caddy obtains and renews the
+# certificate by itself over ACME; that is the whole reason it is here.
+
+{$CHOREO_DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy server:8080
+
+	header {
+		# The app talks to this host over TLS and nothing else.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		# Do not advertise what is running behind.
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
