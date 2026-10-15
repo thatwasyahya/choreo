@@ -1,0 +1,21 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Choreo",
+  "checkTitle": "Check",
+
+  "serverSection": "Server",
+  "localSection": "Local database",
+
+  "serverChecking": "Checking…",
+  "serverReachable": "Reachable, version {version}",
+  "serverUnreachable": "Unreachable",
+
+  "observationsRecorded": "{count, plural, =0{No observation recorded} =1{1 observation recorded} other{{count} observations recorded}}",
+
+  "lastObservation": "Latest: {when}",
+
+  "retry": "Try again",
+
+  "offlineNote": "This screen works with no network: the observations are read from the phone's own database."
+}

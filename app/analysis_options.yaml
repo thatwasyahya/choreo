@@ -1,0 +1,13 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "lib/l10n/generated/**"
+
+linter:
+  rules:
+    # This is an application, not a published package: documenting every
+    # widget constructor would be noise. Intent lives in the code and in
+    # docs/, and the rule would only teach people to write empty comments.
+    public_member_api_docs: false

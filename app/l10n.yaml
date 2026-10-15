@@ -1,0 +1,10 @@
+# French is the template: it is the language the product is designed in, so it
+# is the one that stays correct. English is a translation of it.
+arb-dir: lib/l10n
+template-arb-file: app_fr.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+output-dir: lib/l10n/generated
+# A non-nullable getter: a missing translation becomes a build failure instead
+# of a null check scattered over every widget.
+nullable-getter: false

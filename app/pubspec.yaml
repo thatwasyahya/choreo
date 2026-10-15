@@ -1,0 +1,36 @@
+name: choreo
+description: "Le tableau de bord du foyer."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  # Pinned below 2.35 on purpose, and not out of laziness: drift 2.35 requires
+  # a drift_dev that this Flutter SDK refuses to resolve. Raising this ceiling
+  # means raising drift_dev and the SDK together, in one deliberate step.
+  drift: ">=2.34.0 <2.35.0"
+  drift_flutter: ^0.3.1
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: ^1.6.0
+  intl: ^0.20.2
+  path_provider: ^2.1.6
+
+dev_dependencies:
+  build_runner: ^2.15.1
+  # Paired with the drift ceiling above. drift_dev 2.34.6+ does not resolve
+  # against this Flutter SDK.
+  drift_dev: ">=2.34.0 <2.34.6"
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^10.1.0
+
+flutter:
+  uses-material-design: true
+  # Generates the localisations from lib/l10n/*.arb on every pub get and build.
+  # Strings are externalised from the very first screen (see l10n.yaml).
+  generate: true

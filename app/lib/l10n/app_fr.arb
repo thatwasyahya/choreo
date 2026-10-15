@@ -1,0 +1,67 @@
+{
+  "@@locale": "fr",
+
+  "appTitle": "Choreo",
+  "@appTitle": {
+    "description": "Le nom du produit. Ne se traduit pas."
+  },
+
+  "checkTitle": "Vérification",
+  "@checkTitle": {
+    "description": "Titre de l'écran de vérification technique de la phase 0."
+  },
+
+  "serverSection": "Serveur",
+  "@serverSection": {
+    "description": "En-tête de la section qui rend compte du serveur."
+  },
+
+  "localSection": "Base locale",
+  "@localSection": {
+    "description": "En-tête de la section qui rend compte de la base du téléphone."
+  },
+
+  "serverChecking": "Vérification…",
+  "@serverChecking": {
+    "description": "Affiché pendant l'appel au serveur."
+  },
+
+  "serverReachable": "Joignable, version {version}",
+  "@serverReachable": {
+    "description": "Le serveur a répondu.",
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+
+  "serverUnreachable": "Injoignable",
+  "@serverUnreachable": {
+    "description": "Le serveur n'a pas répondu. Ce n'est pas une erreur : l'app fonctionne sans lui."
+  },
+
+  "observationsRecorded": "{count, plural, =0{Aucune observation enregistrée} =1{1 observation enregistrée} other{{count} observations enregistrées}}",
+  "@observationsRecorded": {
+    "description": "Nombre d'observations conservées dans la base du téléphone.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "lastObservation": "Dernière : {when}",
+  "@lastObservation": {
+    "description": "Date de l'observation la plus récente.",
+    "placeholders": {
+      "when": { "type": "DateTime", "format": "yMd" }
+    }
+  },
+
+  "retry": "Réessayer",
+  "@retry": {
+    "description": "Relance la vérification."
+  },
+
+  "offlineNote": "Cet écran fonctionne sans réseau : les observations sont lues dans la base du téléphone.",
+  "@offlineNote": {
+    "description": "Rappelle que l'app est hors-ligne d'abord, pas hors-ligne tolérée."
+  }
+}
