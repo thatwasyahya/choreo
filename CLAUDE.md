@@ -36,6 +36,8 @@ Source de vérité produit : `docs/CAHIER_DES_CHARGES.md`. Arbitrages et leurs r
 - **`build_runner` exige `--force-jit`.** Il compile son propre script avec
   `dart compile`, qui refuse tout paquet portant un *build hook* — et `sqlite3`, sous
   drift, en porte un. Sans ce drapeau : « does not support build hooks ».
+  À l'inverse, `--delete-conflicting-outputs` a été **supprimé** de build_runner : le
+  passer ne fait qu'émettre un avertissement.
 - **`drift` est plafonné sous 2.35** et `drift_dev` sous 2.34.6, appariés. Remonter l'un
   sans l'autre casse la résolution. Les raisons sont dans `app/pubspec.yaml`.
 - **Le code généré n'est pas versionné** (`*.g.dart`, `lib/l10n/generated/`). Après un

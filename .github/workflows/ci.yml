@@ -94,7 +94,7 @@ jobs:
         # --force-jit is required: build_runner AOT-compiles its build script
         # with `dart compile`, which refuses packages carrying a native build
         # hook — and sqlite3, under drift, carries one.
-        run: dart run build_runner build --force-jit --delete-conflicting-outputs
+        run: dart run build_runner build --force-jit
 
       - name: Analyse
         working-directory: app

@@ -47,6 +47,8 @@ journaux  → l'erreur de pilote, qui nomme l'hôte et le compte, reste DANS les
 | `flutter test` | **8 tests verts** |
 | `make dev` sur machine vierge | monte postgres + serveur, sans intervention |
 | `make prod-config` | composition de production valide |
+| `make apk` | **`app-debug.apk` produit** (153 Mo : débogage, toutes ABI) |
+| `.github/workflows/ci.yml` | se parse — 3 postes, mais **jamais exécutée** faute de dépôt distant |
 | crochet `pre-commit` | refuse un commit portant un jeton |
 
 ## Outils installés

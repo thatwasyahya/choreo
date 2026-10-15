@@ -78,7 +78,7 @@ generate: ## Regenerate the Drift and localisation code
 	# --force-jit is required, not optional: build_runner AOT-compiles its own
 	# build script with `dart compile`, which refuses any package carrying a
 	# native build hook — and sqlite3, under drift, carries one.
-	cd app && dart run build_runner build --force-jit --delete-conflicting-outputs
+	cd app && dart run build_runner build --force-jit
 
 .PHONY: test
 test: test-server test-app ## Run every test
