@@ -76,6 +76,22 @@ func (i *Identity) AccountByLogin(ctx context.Context, login string) (Account, e
 	return a, nil
 }
 
+// AccountByID reads an already-authenticated account, to check a current
+// password or a recovery code against it.
+func (i *Identity) AccountByID(ctx context.Context, accountID uuid.UUID) (Account, error) {
+	const q = `SELECT id, login, pw_hash, recovery_hash FROM accounts WHERE id = $1`
+
+	var a Account
+	err := i.pool.QueryRow(ctx, q, accountID).Scan(&a.ID, &a.Login, &a.PasswordHash, &a.RecoveryHash)
+	switch {
+	case errorsIsNoRows(err):
+		return Account{}, ErrAccountUnknown
+	case err != nil:
+		return Account{}, fmt.Errorf("store: reading an account: %w", err)
+	}
+	return a, nil
+}
+
 // SetPassword replaces the password hash, leaving the recovery code alone.
 func (i *Identity) SetPassword(ctx context.Context, accountID uuid.UUID, pwHash string) error {
 	const q = `UPDATE accounts SET pw_hash = $2 WHERE id = $1`
@@ -125,46 +141,41 @@ func (i *Identity) CheckDevice(ctx context.Context, deviceID, accountID uuid.UUI
 	return nil
 }
 
-// RevokeDevice marks a device revoked and drops its sessions.
+// RevokeDevice marks a device revoked.
+//
+// It deliberately leaves the session rows in place, inert. Deleting them would
+// make the next request indistinguishable from an ordinary expiry, and the
+// difference matters to the client: signing out keeps the local replica,
+// "this phone is not mine any more" wipes it. Keeping the row is what lets the
+// server answer device_revoked rather than a bare 401. The nightly purge
+// collects them.
 func (i *Identity) RevokeDevice(ctx context.Context, accountID, deviceID uuid.UUID) error {
-	return i.inTx(ctx, func(tx pgx.Tx) error {
-		const mark = `UPDATE devices SET revoked_at = now()
-		               WHERE id = $1 AND account_id = $2 AND revoked_at IS NULL`
+	const q = `UPDATE devices SET revoked_at = now()
+	            WHERE id = $1 AND account_id = $2 AND revoked_at IS NULL`
 
-		tag, err := tx.Exec(ctx, mark, deviceID, accountID)
-		if err != nil {
-			return fmt.Errorf("store: revoking a device: %w", err)
-		}
-		if tag.RowsAffected() == 0 {
-			return ErrDeviceUnknown
-		}
-
-		const drop = `DELETE FROM sessions WHERE device_id = $1`
-		if _, err := tx.Exec(ctx, drop, deviceID); err != nil {
-			return fmt.Errorf("store: dropping device sessions: %w", err)
-		}
-		return nil
-	})
+	tag, err := i.pool.Exec(ctx, q, deviceID, accountID)
+	if err != nil {
+		return fmt.Errorf("store: revoking a device: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrDeviceUnknown
+	}
+	return nil
 }
 
-// RevokeOtherDevices revokes every device of an account except one. Recovery
-// uses it: the common case is a lost phone, and leaving it signed in is the
-// thing nobody wants.
+// RevokeOtherDevices revokes every device of an account except one.
+//
+// Recovery uses it: the common case is a lost phone, and leaving it signed in
+// is the thing nobody wants. Those devices get device_revoked and wipe, which
+// is the right outcome for a handset someone else is holding.
 func (i *Identity) RevokeOtherDevices(ctx context.Context, accountID, keep uuid.UUID) error {
-	return i.inTx(ctx, func(tx pgx.Tx) error {
-		const mark = `UPDATE devices SET revoked_at = now()
-		               WHERE account_id = $1 AND id <> $2 AND revoked_at IS NULL`
-		if _, err := tx.Exec(ctx, mark, accountID, keep); err != nil {
-			return fmt.Errorf("store: revoking other devices: %w", err)
-		}
+	const q = `UPDATE devices SET revoked_at = now()
+	            WHERE account_id = $1 AND id <> $2 AND revoked_at IS NULL`
 
-		const drop = `DELETE FROM sessions
-		               WHERE account_id = $1 AND device_id <> $2`
-		if _, err := tx.Exec(ctx, drop, accountID, keep); err != nil {
-			return fmt.Errorf("store: dropping other sessions: %w", err)
-		}
-		return nil
-	})
+	if _, err := i.pool.Exec(ctx, q, accountID, keep); err != nil {
+		return fmt.Errorf("store: revoking other devices: %w", err)
+	}
+	return nil
 }
 
 // Session identifies who is calling, and from which installation.
@@ -203,24 +214,33 @@ func (i *Identity) CreateSession(ctx context.Context, s NewSession) (uuid.UUID, 
 
 // AuthenticateAccess resolves an access token to a session.
 //
-// Device revocation is joined in rather than cached, so removing a device takes
-// effect on its next request instead of when its token happens to expire.
+// Device revocation is checked here rather than cached anywhere, so removing a
+// device takes effect on its next request instead of whenever its token happens
+// to expire.
+//
+// It separates ErrDeviceRevoked from ErrSessionUnknown on purpose: the client
+// reacts differently to each, and collapsing them would mean a removed phone
+// keeps a full copy of the household.
 func (i *Identity) AuthenticateAccess(ctx context.Context, digest []byte) (Session, error) {
-	const q = `SELECT s.id, s.account_id, s.device_id
+	const q = `SELECT s.id, s.account_id, s.device_id, d.revoked_at IS NOT NULL
 	             FROM sessions s
 	             JOIN devices d ON d.id = s.device_id
 	            WHERE s.access_hash = $1
 	              AND s.access_expires_at > now()
-	              AND s.consumed_at IS NULL
-	              AND d.revoked_at IS NULL`
+	              AND s.consumed_at IS NULL`
 
-	var s Session
-	err := i.pool.QueryRow(ctx, q, digest).Scan(&s.ID, &s.AccountID, &s.DeviceID)
+	var (
+		s       Session
+		revoked bool
+	)
+	err := i.pool.QueryRow(ctx, q, digest).Scan(&s.ID, &s.AccountID, &s.DeviceID, &revoked)
 	switch {
 	case errorsIsNoRows(err):
 		return Session{}, ErrSessionUnknown
 	case err != nil:
 		return Session{}, fmt.Errorf("store: authenticating: %w", err)
+	case revoked:
+		return Session{}, ErrDeviceRevoked
 	}
 	return s, nil
 }

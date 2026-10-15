@@ -59,7 +59,11 @@ func TestDeviceOfAnotherAccountIsSimplyUnknown(t *testing.T) {
 }
 
 // Revocation has to bite on the next request, not when the token expires.
-func TestRevokingADeviceInvalidatesItsAccessImmediately(t *testing.T) {
+//
+// And it must be TOLD APART from an ordinary expiry: signing out keeps the local
+// replica, "this phone is not mine any more" wipes it. Collapsing the two would
+// leave a removed handset holding a full copy of the household.
+func TestRevokingADeviceIsDistinctFromExpiry(t *testing.T) {
 	s := newTestStore(t)
 
 	acc := account(t, s, "yahya")
@@ -74,8 +78,30 @@ func TestRevokingADeviceInvalidatesItsAccessImmediately(t *testing.T) {
 		t.Fatalf("RevokeDevice: %v", err)
 	}
 
+	if _, err := s.Identity.AuthenticateAccess(t.Context(), access); !errors.Is(err, store.ErrDeviceRevoked) {
+		t.Errorf("err = %v, want ErrDeviceRevoked after revocation", err)
+	}
+}
+
+// Signing out, by contrast, must look like nothing more than a dead session.
+func TestSigningOutLooksLikeAnOrdinaryExpiry(t *testing.T) {
+	s := newTestStore(t)
+
+	acc := account(t, s, "yahya")
+	dev := device(t, s, acc)
+	access, _ := session(t, s, acc, dev)
+
+	resolved, err := s.Identity.AuthenticateAccess(t.Context(), access)
+	if err != nil {
+		t.Fatalf("AuthenticateAccess: %v", err)
+	}
+
+	if err := s.Identity.DeleteSession(t.Context(), resolved.ID); err != nil {
+		t.Fatalf("DeleteSession: %v", err)
+	}
+
 	if _, err := s.Identity.AuthenticateAccess(t.Context(), access); !errors.Is(err, store.ErrSessionUnknown) {
-		t.Errorf("err = %v, want ErrSessionUnknown after revocation", err)
+		t.Errorf("err = %v, want ErrSessionUnknown — signing out must not wipe the replica", err)
 	}
 }
 
@@ -96,8 +122,10 @@ func TestRecoveryRevokesOtherDevicesOnly(t *testing.T) {
 	if _, err := s.Identity.AuthenticateAccess(t.Context(), keptAccess); err != nil {
 		t.Errorf("the device we signed in from was revoked too: %v", err)
 	}
-	if _, err := s.Identity.AuthenticateAccess(t.Context(), lostAccess); !errors.Is(err, store.ErrSessionUnknown) {
-		t.Errorf("the lost device still works: err = %v", err)
+	// device_revoked and not merely unknown: a handset someone else is holding
+	// should wipe its copy, which is the whole point of recovery.
+	if _, err := s.Identity.AuthenticateAccess(t.Context(), lostAccess); !errors.Is(err, store.ErrDeviceRevoked) {
+		t.Errorf("the lost device: err = %v, want ErrDeviceRevoked", err)
 	}
 }
 
