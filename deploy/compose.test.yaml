@@ -1,0 +1,16 @@
+# Test overlay. Used together with compose.yaml:
+#
+#   docker compose --env-file .env \
+#     -f deploy/compose.yaml -f deploy/compose.test.yaml up -d postgres
+#
+# or simply `make test-db`.
+#
+# It does one thing: publish PostgreSQL on the host so the Go integration tests
+# can reach it. compose.yaml deliberately publishes no port for the database
+# (operating rule 6, deny by default), and that default is right — this overlay
+# is the explicit, named exception rather than a hole left open in the base file.
+
+services:
+  postgres:
+    ports:
+      - "${CHOREO_TEST_PGPORT:-5433}:5432"

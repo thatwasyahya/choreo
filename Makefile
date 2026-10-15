@@ -8,6 +8,14 @@ SHELL := /usr/bin/env bash
 
 COMPOSE := docker compose --env-file .env -f deploy/compose.yaml
 COMPOSE_PROD := $(COMPOSE) -f deploy/compose.prod.yaml
+COMPOSE_TEST := $(COMPOSE) -f deploy/compose.test.yaml
+
+# Read from .env rather than duplicated here: one source for the credentials.
+PGUSER = $(shell grep -E '^POSTGRES_USER=' .env | cut -d= -f2)
+PGPASS = $(shell grep -E '^POSTGRES_PASSWORD=' .env | cut -d= -f2)
+PGPORT = $(shell grep -E '^CHOREO_TEST_PGPORT=' .env | cut -d= -f2)
+TEST_PGPORT = $(if $(PGPORT),$(PGPORT),5433)
+TEST_DSN = postgres://$(PGUSER):$(PGPASS)@localhost:$(TEST_PGPORT)/choreo_test?sslmode=disable
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 .PHONY: help
@@ -82,12 +90,21 @@ generate: ## Regenerate the Drift and localisation code
 	# native build hook — and sqlite3, under drift, carries one.
 	cd app && dart run build_runner build --force-jit
 
+.PHONY: test-db
+test-db: .env ## Start PostgreSQL with a published port and create choreo_test
+	# --wait rather than a sleep loop: compose already knows what healthy means.
+	$(COMPOSE_TEST) up -d --wait postgres
+	@$(COMPOSE_TEST) exec -T postgres psql -U $(PGUSER) -d postgres -tAc \
+	    "SELECT 1 FROM pg_database WHERE datname='choreo_test'" | grep -q 1 \
+	  || $(COMPOSE_TEST) exec -T postgres createdb -U $(PGUSER) choreo_test
+	@echo "→ test database ready on port $(TEST_PGPORT)"
+
 .PHONY: test
 test: test-server test-app ## Run every test
 
 .PHONY: test-server
-test-server: ## Run the Go tests
-	cd server && go test -race ./...
+test-server: ## Run the Go tests (integration tests skip without `make test-db`)
+	cd server && CHOREO_TEST_DATABASE_URL="$(TEST_DSN)" go test -race ./...
 
 .PHONY: test-app
 test-app: generate ## Run the Flutter tests
