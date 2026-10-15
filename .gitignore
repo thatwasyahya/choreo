@@ -24,6 +24,12 @@ build/
 *.freezed.dart
 pubspec.lock.bak
 
+# Generated from lib/l10n/*.arb. The .arb files are the source; these are not.
+/app/lib/l10n/generated/
+
+# Local agent state, not project configuration.
+.claude/scheduled_tasks.lock
+
 # Android
 /app/android/local.properties
 /app/android/.gradle/

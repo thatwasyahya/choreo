@@ -1,0 +1,51 @@
+version: "2"
+
+# The quality bar from the operating rules, made mechanical: errors wrapped and
+# never swallowed, context carried everywhere, no mutable global state.
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose        # a leaked response body leaks a connection
+    - containedctx     # a context stored in a struct outlives its request
+    - contextcheck     # never silently fall back to context.Background
+    - errorlint        # compare errors with errors.Is, not ==
+    - gochecknoglobals # no mutable global state
+    - gocritic
+    - gosec
+    - misspell
+    - nilerr           # returning nil after checking err is almost always a bug
+    - noctx            # no HTTP or SQL call without a context
+    - sqlclosecheck
+    - unconvert
+    - wrapcheck        # an error crossing a package boundary says where it came from
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+    misspell:
+      locale: UK
+    wrapcheck:
+      # wrapcheck exists to catch errors crossing into our code from a library
+      # we do not control. Our own packages already wrap at their boundary;
+      # re-wrapping at every call site only stutters the message.
+      ignore-package-globs:
+        - github.com/thatwasyahya/choreo/server/*
+
+  exclusions:
+    rules:
+      # Tests get more rope: table fixtures are globals, and an unwrapped
+      # error in a helper tells you just as much.
+      - path: _test\.go
+        linters:
+          - gochecknoglobals
+          - gosec
+          - wrapcheck
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
