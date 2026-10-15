@@ -15,11 +15,14 @@ Mis à jour le 15 octobre 2026. À lire en premier pour reprendre à froid.
 | L0.6 Compose et Makefile | **fait** |
 | L0.7 intégration continue | **écrite**, pas encore exercée — il manque le dépôt distant |
 | L0.8 observabilité | **fait** |
-| L0.9 protocole de synchronisation | **écrit** — [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md), 1 499 lignes, **en attente de ta validation** |
+| L0.9 protocole de synchronisation | **écrit**, 1 499 lignes, **ses 9 questions tranchées** (`D-020`) |
 | L0.10 mémoire du projet | **fait** |
 
-**La Phase 0 est terminée côté code.** Il reste trois choses, toutes de ton côté : valider le
-protocole, créer le dépôt distant, brancher un téléphone.
+**La Phase 0 est terminée côté code**, et le protocole n'est plus bloquant : ses neuf
+questions ouvertes ont été tranchées par délégation (`D-020`). Nuance à garder en tête — le
+document n'a pas été relu par le product owner. La section qui mérite ses yeux est
+**« Les sept cas »** : c'est le comportement que les utilisateurs ressentiront. Une section,
+pas 1 499 lignes.
 
 ---
 
@@ -61,11 +64,13 @@ Docker 28.1.1 · JDK 21.0.11 · gitleaks 8.30.1 · golangci-lint 2.13.2
 
 ## Suivant
 
-1. **Lire et valider [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md)** — et répondre aux **neuf
-   questions ouvertes** de sa dernière section, chacune accompagnée d'un défaut proposé.
-   La phase 1 ne démarre pas avant. C'est la validation la plus lourde du projet.
+1. **Lire la section « Les sept cas » de [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md)** — et dire si
+   le comportement décrit est celui qu'on veut. Le reste du document est de la plomberie ;
+   cette section-là est le produit.
 2. Pousser sur le dépôt distant pour que la CI tourne enfin (L0.7).
 3. Installer l'APK sur un vrai téléphone.
+4. Puis **Phase 1** : le noyau — foyer, membres, tâches, base locale, boîte d'envoi,
+   synchronisation. Rien ne la bloque plus techniquement.
 
 ## En attente du product owner
 

@@ -278,3 +278,43 @@ proposé et son arbitrage : premier ou dernier écrivain gagne, attribution des 
 corvée cochée deux fois, vidage du plateau « À revoir », rétention à 90 jours, exposition de
 l'historique, destinataire d'une décision « édition contre suppression », borne de 14 jours sur
 `occurred_on`, et boucle de synchronisation fusionnée ou non en multi-foyers.
+
+→ Tranchées en `D-020`.
+
+### D-020 — Les neuf questions ouvertes du protocole · Ferme
+
+**Tranchées par délégation**, le product owner ayant demandé « les meilleurs choix, les plus
+recommandés, mais ça doit rester gratuit ». À distinguer d'une validation : le document de
+1 499 lignes n'a pas été relu par lui. Revenir sur l'une de ces réponses reste peu coûteux
+**tant qu'aucune ligne de Phase 1 n'est écrite** ; après, c'est une migration de données.
+
+Sept réponses sur neuf confirment le défaut proposé — non par facilité, mais parce que les
+raisons écrites dans le protocole tiennent. Les deux écarts sont Q2 et Q8.
+
+| | Question | Réponse | Pourquoi |
+|---|---|---|---|
+| **Q1** | Premier ou dernier écrivain gagne | **Premier** | Une valeur déjà vue ne change plus sous les yeux, et un téléphone absent dix jours ne peut pas écraser la matinée du foyer. Personne ne perd son texte dans aucune des deux variantes : seule change la valeur affichée avant réponse |
+| **Q2** | Points sur une corvée cochée deux fois | **Les deux marquent** | *Écart.* « Le premier marque » crée une course au clic, et le partage enseigne l'arithmétique de la rancune : les deux contredisent le principe 6 (« aucun classement imposé »). Les points sont une fiction motivationnelle, pas une ressource rare — les dédoubler ne coûte rien |
+| **Q3** | Le plateau « À revoir » peut-il se vider seul | **Non pour les décisions, « Tout écarter » groupé pour les reçus** | Une décision attend un humain, c'est le cœur de la bienveillance. Mais quarante *reçus* sur un téléphone revenu de trois mois est une punition, pas une information |
+| **Q4** | Rétention | **90 jours**, défaut inchangé | Le coût est de 1 à 2 Mo par foyer sur un NVMe de 60 à 80 Go : le stockage n'est pas un argument. Descendre à 30 forcerait un téléchargement complet à un téléphone qui a passé août dans un sac ; monter n'achète rien et allonge la durée pendant laquelle le serveur détient un journal de la vie du foyer, ce qui coupe contre le principe 8 |
+| **Q5** | Historique « qui a fait quoi » visible | **Non exposé en Phases 1 à 3** | Un écran d'historique est un tableau de scores avec des étapes en plus. « Fait par Camille et Jordan » sur la ligne donne l'attribution que réclame la coloc sans la culpabilisation qu'interdit le principe 6. Le serveur le détient de toute façon : c'est une décision d'interface, et elle est **explicitement étendue à la Phase 3** pour qu'un écran n'apparaisse pas par glissement |
+| **Q6** | Décision « édition contre suppression » | **À l'éditeur seul** | Le suppresseur a déjà ce qu'il demandait, et deux voix créent une course |
+| **Q7** | Borne de `occurred_on` | **14 jours** | Couvre « j'ai oublié de cocher la semaine dernière », qui est le cas réel. Trente jours élargiraient la fenêtre dans laquelle un combiné à l'heure fausse décale une validation, et compliqueraient l'arithmétique des séries `relative`, pour servir « je rattrape le mois d'août » — qui n'arrive pas |
+| **Q8** | Boucle de synchronisation fusionnée en multi-foyers | **Non. Une requête par foyer, et en Phase 3 l'endpoint groupé sera une enveloppe** | *Écart, après lecture du protocole.* Le chemin `POST /v1/households/{hid}/sync` porte la frontière de sécurité **dans l'URL** : un contrôle d'appartenance, un verrou de ligne. Un endpoint groupé doit autoriser N foyers par requête, et c'est précisément là qu'un défaut d'isolation irait se loger. Le coût du report est nul : la facture de batterie ne concerne que les membres multi-foyers, qui n'existent pas avant que la Phase 3 livre l'interface. **Contrainte posée** : l'endpoint groupé de Phase 3 enveloppera le chemin par foyer, il ne le réimplémentera jamais |
+| **Q9** | Amendement « relais et arbitre de cinq invariants » | **Accepté** | C'est une correction factuelle, pas un choix. `ARCHITECTURE.md` et `CLAUDE.md` la portent |
+
+#### Sur la contrainte « ça doit rester gratuit »
+
+Vérifié, et le protocole ne déplace pas le plafond de `D-005` :
+
+- **Un long poll garé ne tient pas de connexion à la base.** Le gestionnaire relâche sa
+  connexion `pgx` et sa transaction *avant* de se garer : un appel en attente est une
+  goroutine de ~8 Ko, jamais une connexion `idle in transaction`. C'était le seul mécanisme
+  du protocole capable d'imposer un VPS plus gros, et il est déjà écrit correctement.
+- **Le réveil coûte une connexion pour tout le processus**, pas une par client : un `LISTEN
+  choreo_changes` dédié, et un `NOTIFY` dans la transaction qui valide.
+- **La rétention coûte 1 à 2 Mo par foyer.** Mille foyers tiennent dans 2 Go.
+
+Le coût opérateur reste donc **0 € jusqu'à la Phase 2**, puis ~5 €/mois, inchangé. Et
+« gratuit pour les utilisateurs, pour toujours » reste intact : aucune de ces réponses
+n'introduit de service tiers, de publicité ni de palier payant.
