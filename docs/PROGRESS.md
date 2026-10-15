@@ -11,7 +11,7 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 | Lot | État |
 |---|---|
 | L1.1 schéma serveur | **fait**, et ses garanties prouvées en base |
-| L1.2 authentification | **spécifiée** ([AUTH.md](AUTH.md)) · primitives faites et testées · points de terminaison à écrire |
+| L1.2 authentification | **spécifiée** ([AUTH.md](AUTH.md)) · primitives et couche de stockage faites, testées contre PostgreSQL · **restent les points de terminaison HTTP** |
 | L1.3 `POST /sync` | le lot central, pas commencé |
 | L1.4 → L1.10 | pas commencés |
 
@@ -32,8 +32,31 @@ juste après le contexte. Ils contraindront tout le code de L1.3 au moment où i
 **L1.2, les primitives** — `internal/auth`, sans HTTP ni SQL : argon2id au format PHC,
 jetons opaques, codes en base32 Crockford lisibles à voix haute, limitation de débit en
 mémoire, et un **plafond de 4 calculs argon2id simultanés** sans lequel la promesse de coût
-de `D-005` était une fiction. Le mécanisme est spécifié dans [AUTH.md](AUTH.md) et les choix
-structurants sont consignés en `D-021`. Restent les points de terminaison eux-mêmes.
+de `D-005` était une fiction. Spécifié dans [AUTH.md](AUTH.md), consigné en `D-021`.
+
+**L1.2, la couche de stockage** — `internal/store` scindé en deux : `Store` pour ce qui est
+lié à un foyer, `Identity` pour les comptes, appareils et sessions, qui ne le sont pas. Le
+test d'architecture connaît cette exemption **par son nom** : y ajouter un type est un diff
+visible, pas un contournement silencieux.
+
+La primitive qui porte tout L1.3 est en place : `nextSeq` incrémente `households.change_seq`
+**sous verrou de ligne, dans la transaction appelante**. Les écritures d'un foyer deviennent
+sérielles — c'est le prix, et il est théorique à quelques dizaines d'écritures par jour —
+mais l'ordre d'attribution devient l'ordre de validation, donc « tout ce qui suit 48 210 » ne
+peut rien manquer.
+
+**Un amendement à ma propre décision, trouvé en implémentant** : la règle « rejouer un
+*refresh* consommé révoque l'appareil » se retourne contre l'utilisateur quand la *réponse*
+du serveur est perdue en route. Le client retente avec le jeton qu'il détient encore et se
+verrouille — exactement la reconnexion que `A1` voulait éviter. D'où une **fenêtre de grâce
+de 60 secondes** : rejouer est accordé si le successeur n'a jamais servi, refusé sinon. La
+détection de vol survit ; le faux positif disparaît. Voir `D-021`.
+
+**Banc d'essai d'intégration** — les tests de `internal/store` tournent contre un vrai
+PostgreSQL, parce que tout ce qui est intéressant ici vit dans la base : le verrou de ligne,
+les clés étrangères composites, l'index unique partiel. Un faux testerait le faux. Sans
+`CHOREO_TEST_DATABASE_URL` ils **s'ignorent** au lieu d'échouer, pour que `go test ./...`
+marche sans Docker — d'où `make test-db` puis `make test-server`.
 
 | Lot | État |
 |---|---|

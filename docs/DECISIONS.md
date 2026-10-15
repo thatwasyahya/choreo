@@ -335,8 +335,17 @@ seul. `D-009` avait tranché le mécanisme ; il manquait tout point de terminais
   cérémonie de rotation de clés pour rien. En échange la révocation est immédiate.
 - **Le jeton de rafraîchissement est à usage unique et tourne.** Rejouer un jeton consommé
   révoque tout l'appareil : on ne peut pas savoir si c'est le voleur ou la victime qui
-  rejoue, donc on ferme. Bruyant, et voulu — un faux positif coûte une saisie de mot de
-  passe, un faux négatif coûte le foyer.
+  rejoue, donc on ferme.
+- **Amendé pendant l'implémentation — une fenêtre de grâce de 60 secondes.** La règle
+  stricte ci-dessus se retourne contre l'utilisateur dans un cas banal : la réponse du
+  serveur est perdue en route, le client retente avec l'ancien jeton, et il se verrouille
+  lui-même — soit exactement la reconnexion que `A1` a été tranchée pour éviter. La règle
+  devient : rejouer un jeton dont un successeur **a déjà servi** reste une révocation, mais
+  le rejouer dans les 60 secondes alors que son successeur n'a **jamais** servi est accordé,
+  et le successeur orphelin est jeté. La détection de vol survit — alterner sur une chaîne
+  est toujours fermé ; c'est le faux positif qui disparaît. Coût assumé : 60 secondes
+  pendant lesquelles un voleur déjà en possession de l'ancien jeton peut le présenter avant
+  le propriétaire.
 - **`device_id` est frappé par le serveur.** Il porte le curseur de synchronisation : un
   client qui pourrait revendiquer celui d'un autre appareil corromprait sa réplique.
 - **argon2id m=19456, t=2, p=1**, paramètres embarqués au format PHC, donc relevables plus

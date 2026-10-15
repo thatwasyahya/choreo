@@ -23,6 +23,7 @@ Source de vérité produit : `docs/CAHIER_DES_CHARGES.md`. Arbitrages et leurs r
 |---|---|
 | `make help` | la liste à jour |
 | `make dev` | monte postgres + serveur (crée `.env` au besoin) |
+| `make test-db` | **avant les tests d'intégration** : publie PostgreSQL et crée `choreo_test` |
 | `make test` | tests Go **et** Flutter |
 | `make lint` | `go vet` + `golangci-lint` + `flutter analyze` |
 | `make generate` | régénère le code Drift et les traductions |
@@ -43,6 +44,13 @@ Source de vérité produit : `docs/CAHIER_DES_CHARGES.md`. Arbitrages et leurs r
 - **Le code généré n'est pas versionné** (`*.g.dart`, `lib/l10n/generated/`). Après un
   clone : `make generate` avant `flutter analyze`.
 - Le partage `\\wsl.localhost` échoue parfois en `fsync` sous charge. Écrire côté Linux.
+- **Les tests de `internal/store` s'ignorent silencieusement** sans
+  `CHOREO_TEST_DATABASE_URL`. Un `ok ... 0.01s` sur ce paquet veut dire « rien n'a tourné ».
+  `make test-db` d'abord, puis `make test-server` qui passe la variable.
+- **`compose.yaml` ne publie aucun port PostgreSQL** (refus par défaut). Les surcouches
+  `compose.test.yaml` (port 5433) et `compose.prod.yaml` (Caddy) sont les exceptions
+  nommées. Un profil ne suffirait pas : Compose interpole les variables de tous les
+  services, profil inactif compris.
 
 ## Conventions
 

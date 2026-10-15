@@ -48,9 +48,29 @@ requête et peut finir dans le journal d'un intermédiaire ; le `refresh` passe 
 
 **Le `refresh` est à usage unique et tourne à chaque emploi.** Réutiliser un `refresh` déjà
 consommé est le signal d'un vol — soit le voleur s'en sert, soit la victime. On ne peut pas
-savoir lequel, donc on **révoque tout l'appareil** et on force une reconnexion. C'est bruyant
-et c'est voulu : un faux positif coûte une saisie de mot de passe, un faux négatif coûte le
-foyer.
+savoir lequel, donc on **révoque tout l'appareil**.
+
+**Avec une exception, et elle n'est pas un confort.** La règle stricte ci-dessus se retourne
+contre l'utilisateur dans un cas banal : le téléphone envoie son `refresh`, le serveur fait
+tourner la chaîne, et **la réponse est perdue** en route. Le client détient toujours l'ancien
+jeton, il retente, et il se verrouille lui-même — c'est-à-dire exactement la reconnexion que
+`A1` a été tranchée pour éviter. Sur un réseau mobile, ce n'est pas un cas limite.
+
+La règle exacte est donc :
+
+| Situation | Réponse |
+|---|---|
+| Jeton inconnu ou expiré | `401`, rien d'autre |
+| Jeton consommé, **et un successeur a déjà servi** | `401 token_reuse` + **révocation de l'appareil** |
+| Jeton consommé depuis moins de **60 secondes**, successeur jamais servi | **accordé** : le successeur orphelin est jeté et une paire neuve est émise |
+
+La détection de vol survit intacte : rejouer un jeton dont le successeur a déjà servi reste
+une révocation, et c'est la vraie signature de deux parties qui alternent sur une même
+chaîne. Ce que la fenêtre enlève, c'est le faux positif — pas le vrai.
+
+Ce que ça coûte : pendant au plus 60 secondes, un voleur qui aurait intercepté l'ancien jeton
+peut le présenter avant que le propriétaire n'utilise le nouveau. Soixante secondes et un vol
+déjà en cours, contre une famille déconnectée pour un paquet perdu — l'échange est net.
 
 ### argon2id, avec les paramètres dans le haché
 
