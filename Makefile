@@ -7,6 +7,7 @@ SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
 COMPOSE := docker compose --env-file .env -f deploy/compose.yaml
+COMPOSE_PROD := $(COMPOSE) -f deploy/compose.prod.yaml
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 .PHONY: help
@@ -42,6 +43,15 @@ logs: ## Follow the server logs
 .PHONY: ps
 ps: ## Show what is running
 	$(COMPOSE) ps
+
+.PHONY: prod-up
+prod-up: .env ## Bring the stack up behind Caddy (needs CHOREO_DOMAIN in .env)
+	CHOREO_VERSION=$(VERSION) $(COMPOSE_PROD) up --build -d
+	@$(COMPOSE_PROD) ps
+
+.PHONY: prod-config
+prod-config: .env ## Check the production composition without starting anything
+	$(COMPOSE_PROD) config >/dev/null && echo "→ production composition is valid"
 
 # --- database ---------------------------------------------------------------
 

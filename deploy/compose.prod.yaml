@@ -1,0 +1,34 @@
+# Production overlay. Used together with compose.yaml, never on its own:
+#
+#   docker compose --env-file .env \
+#     -f deploy/compose.yaml -f deploy/compose.prod.yaml up -d
+#
+# or simply `make prod-up`.
+#
+# It does two things: it puts Caddy in front, and it takes the server's direct
+# port away so the proxy is the only door (operating rule 6).
+
+services:
+  server:
+    # An empty list REPLACES the development mapping rather than adding to it.
+    ports: []
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on: [server]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      # Required here, and only here: Caddy needs a real hostname to obtain a
+      # certificate over ACME.
+      CHOREO_DOMAIN: ${CHOREO_DOMAIN:?set CHOREO_DOMAIN in .env before deploying}
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

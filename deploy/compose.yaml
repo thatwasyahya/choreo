@@ -1,7 +1,16 @@
 name: choreo
 
-# One PostgreSQL, one server, one reverse proxy. Operating rule 4: every extra
-# moving part has to justify its RAM, and the default answer is no.
+# The development stack: PostgreSQL and the server, nothing else.
+#
+# The reverse proxy lives in compose.prod.yaml rather than behind a profile.
+# Compose interpolates variables for EVERY service when it parses the file,
+# including services in a profile that is not active — so a `${VAR:?}` meant
+# only for production breaks `make dev`. Profiles gate what runs, not what gets
+# interpolated. Two files is the honest way to say that dev and production
+# differ in topology.
+#
+# Operating rule 4: every extra moving part has to justify its RAM, and the
+# default answer is no.
 
 services:
   postgres:
@@ -39,28 +48,9 @@ services:
         condition: service_healthy
     ports:
       # Development only: the phone on the local network talks straight to the
-      # server. In production the proxy below is the only door.
+      # server. compose.prod.yaml closes this and puts Caddy in front.
       - "${CHOREO_DEV_PORT:-8080}:8080"
-    restart: unless-stopped
-
-  # Only started with `--profile prod`. It stays out of the way until there is
-  # a real domain name to get a certificate for (decision D-018).
-  caddy:
-    image: caddy:2-alpine
-    profiles: ["prod"]
-    depends_on: [server]
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    environment:
-      CHOREO_DOMAIN: ${CHOREO_DOMAIN:?set it in .env before using the prod profile}
     restart: unless-stopped
 
 volumes:
   postgres-data:
-  caddy-data:
-  caddy-config:
