@@ -80,11 +80,23 @@ func TestNoSQLOutsideStore(t *testing.T) {
 // caller cannot forget it: the compiler asks for it.
 func TestStoreMethodsTakeHouseholdID(t *testing.T) {
 	// Infrastructure, not data access: these legitimately have no household.
-	exempt := map[string]bool{
+	exemptMethod := map[string]bool{
 		"Ping":    true,
 		"Close":   true,
 		"Migrate": true,
 		"Open":    true,
+	}
+
+	// Receivers that hold IDENTITY rather than household data. Accounts,
+	// sessions and devices are not tenant-scoped — an account exists before any
+	// household and can belong to several — so demanding householdID of them
+	// would be meaningless.
+	//
+	// This list is deliberately an allowlist and not a pattern: adding a type
+	// here is a visible diff, and a reviewer gets to ask why household-scoped
+	// queries are moving somewhere the tenant rule does not apply.
+	exemptReceiver := map[string]bool{
+		"Identity": true,
 	}
 
 	offenders := make([]string, 0)
@@ -99,7 +111,7 @@ func TestStoreMethodsTakeHouseholdID(t *testing.T) {
 			if !ok || fn.Recv == nil || !fn.Name.IsExported() {
 				continue
 			}
-			if exempt[fn.Name.Name] {
+			if exemptMethod[fn.Name.Name] || exemptReceiver[receiverType(fn)] {
 				continue
 			}
 
@@ -123,6 +135,23 @@ func TestStoreMethodsTakeHouseholdID(t *testing.T) {
 		t.Errorf("store methods must be (ctx, householdID, …) so a caller cannot "+
 			"forget the tenant:\n  %s", strings.Join(offenders, "\n  "))
 	}
+}
+
+// receiverType returns the bare type name of a method's receiver, with any
+// pointer star removed: both (s *Identity) and (s Identity) give "Identity".
+func receiverType(fn *ast.FuncDecl) string {
+	if fn.Recv == nil || len(fn.Recv.List) == 0 {
+		return ""
+	}
+
+	expr := fn.Recv.List[0].Type
+	if star, ok := expr.(*ast.StarExpr); ok {
+		expr = star.X
+	}
+	if ident, ok := expr.(*ast.Ident); ok {
+		return ident.Name
+	}
+	return ""
 }
 
 // flatten returns parameter names, expanding grouped parameters such as
