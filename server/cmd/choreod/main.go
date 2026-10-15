@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/thatwasyahya/choreo/server/internal/auth"
 	"github.com/thatwasyahya/choreo/server/internal/config"
 	"github.com/thatwasyahya/choreo/server/internal/httpapi"
 	"github.com/thatwasyahya/choreo/server/internal/obs"
@@ -80,10 +81,14 @@ func run() error {
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.New(httpapi.Deps{
-			Logger:  logger,
-			Metrics: metrics,
-			DB:      db,
-			Version: version,
+			Logger:    logger,
+			Metrics:   metrics,
+			DB:        db,
+			Version:   version,
+			Store:     db,
+			Verifier:  auth.NewVerifier(auth.DefaultHashConcurrency),
+			Limits:    httpapi.DefaultLimits(),
+			PublicURL: cfg.PublicURL,
 		}),
 		// Without this, a client that opens a connection and never sends a
 		// request header holds a goroutine forever.

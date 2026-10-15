@@ -28,6 +28,12 @@ type Config struct {
 	// DatabaseURL is a PostgreSQL connection string.
 	DatabaseURL string
 
+	// PublicURL is the address clients reach this server at, used in the join
+	// link behind an invitation QR code. It cannot be derived from a request:
+	// the Host header is whatever the caller says, and a household running its
+	// own instance has to be able to invite people to its own address.
+	PublicURL string
+
 	// LogLevel filters structured logs.
 	LogLevel slog.Level
 
@@ -48,11 +54,19 @@ func Load() (Config, error) {
 		Env:             lookup("ENV", "dev"),
 		HTTPAddr:        lookup("HTTP_ADDR", ":8080"),
 		DatabaseURL:     lookup("DATABASE_URL", ""),
+		PublicURL:       lookup("PUBLIC_URL", "http://localhost:8080"),
 		ShutdownTimeout: 15 * time.Second,
 	}
 
 	if cfg.DatabaseURL == "" {
 		problems = append(problems, envPrefix+"DATABASE_URL is required")
+	}
+
+	// A localhost default is right for development and wrong everywhere else:
+	// an invitation carrying it would send guests to their own phone.
+	if cfg.Env == "prod" && strings.Contains(cfg.PublicURL, "localhost") {
+		problems = append(problems,
+			envPrefix+"PUBLIC_URL must be the real address in prod, not localhost")
 	}
 
 	switch cfg.Env {
@@ -94,6 +108,7 @@ func (c Config) Redacted() map[string]any {
 	return map[string]any{
 		"env":              c.Env,
 		"http_addr":        c.HTTPAddr,
+		"public_url":       c.PublicURL,
 		"log_level":        c.LogLevel.String(),
 		"shutdown_timeout": c.ShutdownTimeout.String(),
 		"database":         redactURL(c.DatabaseURL),
