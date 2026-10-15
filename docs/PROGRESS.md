@@ -15,8 +15,11 @@ Mis à jour le 15 octobre 2026. À lire en premier pour reprendre à froid.
 | L0.6 Compose et Makefile | **fait** |
 | L0.7 intégration continue | **écrite**, pas encore exercée — il manque le dépôt distant |
 | L0.8 observabilité | **fait** |
-| L0.9 protocole de synchronisation | **en cours de rédaction** |
+| L0.9 protocole de synchronisation | **écrit** — [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md), 1 499 lignes, **en attente de ta validation** |
 | L0.10 mémoire du projet | **fait** |
+
+**La Phase 0 est terminée côté code.** Il reste trois choses, toutes de ton côté : valider le
+protocole, créer le dépôt distant, brancher un téléphone.
 
 ---
 
@@ -58,8 +61,9 @@ Docker 28.1.1 · JDK 21.0.11 · gitleaks 8.30.1 · golangci-lint 2.13.2
 
 ## Suivant
 
-1. **Finir L0.9** : `SYNC_PROTOCOL.md`, puis **le faire valider**. La phase 1 ne démarre
-   pas avant. C'est la validation la plus lourde du projet.
+1. **Lire et valider [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md)** — et répondre aux **neuf
+   questions ouvertes** de sa dernière section, chacune accompagnée d'un défaut proposé.
+   La phase 1 ne démarre pas avant. C'est la validation la plus lourde du projet.
 2. Pousser sur le dépôt distant pour que la CI tourne enfin (L0.7).
 3. Installer l'APK sur un vrai téléphone.
 

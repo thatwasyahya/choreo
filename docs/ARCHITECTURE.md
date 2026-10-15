@@ -7,7 +7,15 @@ elles-mêmes, avec leur date et leur statut, sont dans [DECISIONS.md](DECISIONS.
 
 ## L'idée à retenir
 
-> **Le téléphone est la base de données. Le serveur est un relais.**
+> **Le téléphone est la base de données. Le serveur est un relais — et l'arbitre de cinq
+> invariants.**
+
+> **Amendement, en attente de validation.** La formule d'origine était « le serveur est un
+> relais, pas le cerveau ». [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md) montre qu'elle est trop
+> forte : cinq choses ne peuvent pas être arbitrées ailleurs qu'au serveur — la séquence du
+> foyer, la provenance des champs, l'unicité de l'occurrence ouverte d'une série, les rôles
+> et l'appartenance, et la borne sur `occurred_on`. Cinq, et pas plus. Valider le protocole,
+> c'est valider cette correction.
 
 Ce n'est pas une formule : c'est la contrainte dont découle tout le reste. L'application
 n'est pas un client d'API qui met en cache, c'est une base locale qui se synchronise
@@ -117,11 +125,21 @@ Trois propriétés, à tenir à chaque phase :
 
 ---
 
-## Ce qui n'est pas encore décidé
+## Le protocole de synchronisation
 
-Le **protocole de synchronisation** — journal de changements, curseur, résolution des
-conflits, pierres tombales — fait l'objet de [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md). Le §10.3
-du cahier des charges n'a jamais existé (`D-015`), ce document le remplace. **Il doit être
-validé par le product owner avant la première ligne de phase 1** : c'est la pièce dont
-dépendent le schéma de données, l'API et le comportement hors-ligne, c'est-à-dire le
-produit.
+Écrit, et **en attente de validation** : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md) remplace le
+§10.3 du cahier des charges, qui n'a jamais existé (`D-015`). C'est la pièce dont dépendent
+le schéma de données, l'API et le comportement hors-ligne — donc le produit. **La phase 1 ne
+démarre pas avant.**
+
+En une phrase : *les intentions montent, les états de lignes descendent, un compteur par
+foyer ordonne tout, et aucune horloge de téléphone n'arbitre jamais rien.*
+
+La conséquence la plus structurante pour l'architecture : **il n'y a pas de moteur de fusion
+sur le téléphone.** Le serveur renvoie l'état des lignes après fusion, pas les opérations des
+autres ; appliquer un changement côté client, c'est remplacer la ligne si la révision entrante
+est supérieure. Une seule implémentation de la fusion existe, en Go. On évite ainsi de devoir
+maintenir deux réducteurs, en Go et en Dart, d'accord entre eux pour toujours.
+
+Neuf questions restent ouvertes — elles sont du ressort du product owner, pas du nôtre, et
+listées en fin de document.

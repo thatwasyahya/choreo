@@ -225,3 +225,56 @@ App Links.
 *Seul risque* : `choreo.eu` était libre au 20/09/2026 et n'est pas réservé. Quelqu'un peut le
 prendre entre-temps. Si cela arrive, `choreo.fr` était libre à la même date, et le nom `Choreo`
 lui-même n'est pas engagé tant qu'aucun dépôt public ne le porte.
+
+---
+
+## 15 octobre 2026
+
+### D-019 — Protocole de synchronisation : intentions montantes, états descendants · **En attente de validation**
+
+`docs/SYNC_PROTOCOL.md` remplace le §10.3 jamais transmis (`D-015`). **Ce document bloque le
+démarrage de la Phase 1** : il fixe le schéma de données, l'API et le comportement hors-ligne.
+
+*Le mécanisme* : les **intentions** montent (« coche cette tâche », « renomme ce champ,
+j'avais vu la révision 48 102 »), les **états de lignes** descendent déjà fusionnés, un
+compteur par foyer (`households.change_seq`, incrémenté sous verrou de ligne) ordonne tout, et
+**aucune horloge de téléphone n'arbitre jamais rien** — la détection de conflit est causale
+(« cet auteur avait-il vu la valeur actuelle ? »), pas chronologique.
+
+*La conséquence la plus structurante* : **il n'y a pas de moteur de fusion sur le téléphone.**
+Appliquer un changement, c'est remplacer la ligne si la révision entrante est supérieure.
+Idempotent, insensible à l'ordre d'arrivée. Une seule implémentation de la fusion existe, en
+Go. Les quatre propositions examinées payaient toutes le même prix — deux réducteurs, en Go et
+en Dart, devant rester d'accord pour toujours — et ce prix est supprimé, pas atténué.
+
+*L'invariant « une seule occurrence ouverte par série »* est une contrainte **entre lignes**,
+qu'aucune règle de fusion par ligne ne peut exprimer. Il vit donc dans une colonne
+(`series.open_occurrence_id`), avec un compare-et-échange sous le verrou du foyer, et une
+identité d'occurrence dérivée d'un **entier** (`uuidv5(series_id || ':' || series_index)`) et
+non d'une date : deux téléphones hors-ligne calculent le même identifiant, l'insertion du
+second devient un `ON CONFLICT DO NOTHING`, et rien ne casse pendant un déploiement progressif
+à cause d'un écart de base `tzdata` entre une app N-1 et le serveur.
+
+*Méthode* : quatre protocoles conçus indépendamment, chacun démonté par un relecteur adverse.
+Scores des juges — `rowsync` 8/10 en simplicité et 5 défauts fatals, contre 3/10 et 10 défauts
+pour le journal d'opérations, 2/10 et 9 pour les CRDT, 2/10 et 6 pour l'hétérogène. La synthèse
+part de la base la plus simple et y greffe ce que les autres avaient de bon.
+
+*Écarté, pour que la question ne revienne pas* : les **CRDT** convergent mais ne savent pas
+exprimer l'invariant des séries, et personne seul ne les débogue à une heure du matin ; les
+**horloges logiques hybrides** remplacent une horloge fausse par une horloge fausse plafonnée,
+et le plafond récompense le tricheur ; le **journal d'opérations rejoué par le client** impose
+les deux réducteurs ; la **dernière-écriture-gagne globale** est exactement le mécanisme par
+lequel un téléphone qui refait surface écrase la matinée du foyer.
+
+*Amendement à valider en même temps* (Q9 du document) : « le serveur est un relais, pas le
+cerveau » devient « un relais **et l'arbitre de cinq invariants** » — séquence du foyer,
+provenance des champs, unicité de l'occurrence ouverte, rôles et appartenance, borne sur
+`occurred_on`. Cinq, et pas plus. `docs/ARCHITECTURE.md` et `CLAUDE.md` portent déjà la
+correction, marquée comme conditionnelle.
+
+*Huit autres questions ouvertes*, toutes du ressort du product owner, chacune avec un défaut
+proposé et son arbitrage : premier ou dernier écrivain gagne, attribution des points sur une
+corvée cochée deux fois, vidage du plateau « À revoir », rétention à 90 jours, exposition de
+l'historique, destinataire d'une décision « édition contre suppression », borne de 14 jours sur
+`occurred_on`, et boucle de synchronisation fusionnée ou non en multi-foyers.

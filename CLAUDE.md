@@ -65,9 +65,12 @@ Source de vérité produit : `docs/CAHIER_DES_CHARGES.md`. Arbitrages et leurs r
 - **Le téléphone détient une réplique complète de son foyer.** L'app *est* une base
   locale qui se synchronise, pas un client d'API qui met en cache. Tout ce qui est à
   l'écran est lu dans Drift, jamais attendu du réseau.
-- **Le serveur est un relais de synchronisation, pas le cerveau.** Il authentifie,
-  empile les mutations dans le journal du foyer, sert les changements depuis un
-  curseur, et réveille les clients. Rien d'autre.
+- **Le serveur est un relais de synchronisation et l'arbitre de cinq invariants** — la
+  séquence du foyer, la provenance des champs, l'unicité de l'occurrence ouverte d'une
+  série, les rôles et l'appartenance, la borne sur `occurred_on`. Cinq, et pas plus.
+- **Aucun moteur de fusion sur le téléphone.** Le serveur renvoie des états de lignes
+  déjà fusionnés ; le client remplace la ligne si la révision entrante est supérieure.
+  La fusion n'existe qu'une fois, en Go. Voir `docs/SYNC_PROTOCOL.md`.
 - **Les rappels datés sont calculés et déclenchés sur l'appareil** — zéro service de
   push, et ça marche en avion (`D-010`). Firebase est exclu.
 - **L'adresse du serveur est un paramètre de compilation** (`CHOREO_SERVER_URL`), jamais
