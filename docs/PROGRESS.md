@@ -12,7 +12,7 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 |---|---|
 | L1.1 schéma serveur | **fait**, et ses garanties prouvées en base |
 | L1.2 authentification | **fait** — spécifié ([AUTH.md](AUTH.md)), implémenté, éprouvé de bout en bout |
-| L1.3 `POST /sync` | **en cours** — résolution causale, idempotence et descente des changements faites ; restent `delete`, `restore`, `complete`, `uncomplete` et les séries |
+| L1.3 `POST /sync` | **le vocabulaire est complet** — 22 règles, 22 tests ; restent les listes, le `order_key` fractionnaire et l'arithmétique de récurrence (Phase 2) |
 | L1.4 → L1.10 | pas commencés |
 
 **L1.3, ce qui tient déjà.** Quinze lignes de la table des règles ont chacune leur test,
@@ -32,7 +32,28 @@ transaction.
 | schéma violé → `malformed`, jamais montré | ✓ |
 | `op_id` rejoué, même hachage → `absorbed`, résultat stocké | ✓ |
 | `op_id` rejoué, hachage différent → `malformed` | ✓ |
-| validations, dévalidation, séries, réordonnancement | à faire |
+| deux validations du même élément → **les deux conservées** | ✓ |
+| dévalidation → retire **exactement** les membres observés | ✓ |
+| suppression périmée → `receipted`, notice au suppresseur | ✓ |
+| deux téléphones ouvrent la prochaine occurrence → même ligne | ✓ |
+| dévalider/restaurer une occurrence dépassée → règle du successeur | ✓ |
+| rôle insuffisant / membre retiré / appareil révoqué → `forbidden` | tenu par l'intergiciel, pas encore par un test de `/sync` |
+| listes, `order_key` fractionnaire | Phase 2 |
+
+**L'invariant des séries tient, et il est exact et non « au plus un ».** Trois choses le
+portent :
+
+1. **L'identité dérive d'un entier**, `uuidv5(series_id || ':' || index)`. Deux téléphones
+   hors-ligne calculent le **même** identifiant, donc le second `INSERT` devient un
+   `ON CONFLICT DO NOTHING` : il n'y a rien à fusionner. Un test fige la valeur dérivée —
+   changer la dérivation casserait l'invariant pour tous les foyers existants.
+2. **Supprimer l'occurrence ouverte fait avancer la série.** « On saute cette semaine » ne
+   peut pas laisser une série sans rien d'ouvert, et c'est pour cela qu'il n'existe **aucun
+   balayeur** qui régénère ce que l'utilisateur a écarté.
+3. **Zéro ligne mise à jour n'est pas une erreur.** Un test vérifie qu'une série en pause
+   laisse quand même la coche en place avec `series_advanced: false`. Mettre la création de
+   l'occurrence et la validation dans une même transaction sans garde, c'est ainsi qu'une
+   corvée faite disparaît sans un mot.
 
 **Une instabilité de tests trouvée et corrigée** : `go test ./...` lance les *paquets* en
 parallèle, et deux paquets tronquaient la même base `choreo_test` entre leurs propres tests.
