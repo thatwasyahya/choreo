@@ -21,6 +21,7 @@ import (
 	"github.com/thatwasyahya/choreo/server/internal/httpapi"
 	"github.com/thatwasyahya/choreo/server/internal/obs"
 	"github.com/thatwasyahya/choreo/server/internal/store"
+	"github.com/thatwasyahya/choreo/server/internal/wake"
 )
 
 // version is stamped at build time with -ldflags "-X main.version=...", which
@@ -78,6 +79,11 @@ func run() error {
 
 	metrics := obs.NewMetrics()
 
+	// One LISTEN connection for the whole process, outside the pool. It is what
+	// lets a sync call park on a goroutine instead of on a database connection.
+	hub := wake.New(cfg.DatabaseURL, logger)
+	go hub.Run(ctx)
+
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.New(httpapi.Deps{
@@ -89,6 +95,7 @@ func run() error {
 			Verifier:  auth.NewVerifier(auth.DefaultHashConcurrency),
 			Limits:    httpapi.DefaultLimits(),
 			PublicURL: cfg.PublicURL,
+			Wake:      hub,
 		}),
 		// Without this, a client that opens a connection and never sends a
 		// request header holds a goroutine forever.

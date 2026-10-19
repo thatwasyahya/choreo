@@ -109,6 +109,54 @@ func execSQLFor(t *testing.T, query string, args ...any) {
 	}
 }
 
+// execScalar reads a single value from the database, for assertions about the
+// server's own footprint rather than about its answers.
+func execScalar(t *testing.T, into any, query string, args ...any) {
+	t.Helper()
+
+	ctx := t.Context()
+
+	pool, err := pgxpool.New(ctx, os.Getenv("CHOREO_TEST_DATABASE_URL"))
+	if err != nil {
+		t.Fatalf("connecting for an assertion: %v", err)
+	}
+	defer pool.Close()
+
+	if err := pool.QueryRow(ctx, query, args...).Scan(into); err != nil {
+		t.Fatalf("assertion query: %v", err)
+	}
+}
+
+// withHeaders is do, for the cases where the answer is in the headers.
+//
+// It sends its own request rather than remembering the last one: do is called
+// from several goroutines at once in the long-poll tests, and shared mutable
+// state there would be a data race rather than a convenience.
+func (a *api) withHeaders(method, path, token string, body any) (int, http.Header, map[string]any) {
+	a.t.Helper()
+
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		a.t.Fatalf("encoding the request: %v", err)
+	}
+
+	req := httptest.NewRequestWithContext(a.t.Context(), method, path, bytes.NewReader(encoded))
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	req.RemoteAddr = "192.0.2.10:54321"
+
+	rec := httptest.NewRecorder()
+	a.handler.ServeHTTP(rec, req)
+
+	decoded := map[string]any{}
+	if rec.Body.Len() > 0 {
+		_ = json.Unmarshal(rec.Body.Bytes(), &decoded)
+	}
+	return rec.Code, rec.Header(), decoded
+}
+
 // do sends a request and decodes whatever came back.
 func (a *api) do(method, path, token string, body any) (int, map[string]any) {
 	a.t.Helper()

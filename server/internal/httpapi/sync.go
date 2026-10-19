@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,6 +72,21 @@ const (
 	protocolMax = 1
 )
 
+// maxWait caps how long one request may be held open. The protocol asks for
+// twenty seconds; the cap exists so a client cannot pin a goroutine for an hour
+// by asking nicely.
+const maxWait = 30 * time.Second
+
+func waitFor(milliseconds int) time.Duration {
+	if milliseconds <= 0 {
+		return 0
+	}
+	if requested := time.Duration(milliseconds) * time.Millisecond; requested < maxWait {
+		return requested
+	}
+	return maxWait
+}
+
 // sync is the protocol: push intents, pull row states, one round trip.
 //
 // A tap on "done" is one HTTP call that sends the gesture AND brings back what
@@ -104,7 +120,22 @@ func (h *handlers) sync(
 		return
 	}
 
-	out, err := h.store.ApplySync(ctx, householdID, store.SyncInput{
+	wait := waitFor(req.WaitMS)
+
+	// Subscribe BEFORE reading anything. A change that commits between the read
+	// and the registration would otherwise be missed, and the client would hold
+	// its request open for the full timeout waiting for something that had
+	// already happened.
+	var (
+		woken   <-chan struct{}
+		release = func() {}
+	)
+	if wait > 0 && h.wake != nil {
+		woken, release = h.wake.Subscribe(householdID)
+	}
+	defer release()
+
+	input := store.SyncInput{
 		DeviceID:   session.DeviceID,
 		MemberID:   member.ID,
 		AppVersion: req.AppVersion,
@@ -112,7 +143,9 @@ func (h *handlers) sync(
 		CursorSeq:  req.CursorSeq,
 		Limit:      req.Limit,
 		Ops:        ops,
-	})
+	}
+
+	out, err := h.store.ApplySync(ctx, householdID, input)
 	if err != nil {
 		if errors.Is(err, store.ErrBatchTooLarge) {
 			writeJSON(w, http.StatusRequestEntityTooLarge,
@@ -121,6 +154,37 @@ func (h *handlers) sync(
 		}
 		writeError(w, r, h.logger, err)
 		return
+	}
+
+	// Park only when there is genuinely nothing to say. A client that pushed
+	// operations is owed its results now.
+	if woken != nil && len(out.Changes) == 0 && len(out.Results) == 0 {
+		// Nothing of the database is held here. ApplySync has returned, so its
+		// connection and its transaction are back in the pool: what waits is a
+		// goroutine, which is the whole point of doing it this way.
+		timer := time.NewTimer(wait)
+		defer timer.Stop()
+
+		select {
+		case <-woken:
+			input.Ops = nil
+			if out, err = h.store.ApplySync(ctx, householdID, input); err != nil {
+				writeError(w, r, h.logger, err)
+				return
+			}
+
+		case <-timer.C:
+			// Nothing happened. The head goes in a header so the client can
+			// tell "nothing new" from "I am behind" without a body.
+			w.Header().Set("Choreo-Head-Seq", strconv.FormatInt(out.HeadSeq, 10))
+			w.WriteHeader(http.StatusNoContent)
+			return
+
+		case <-ctx.Done():
+			// The client hung up. Nothing to answer and nothing to clean up
+			// beyond the deferred release.
+			return
+		}
 	}
 
 	writeJSON(w, http.StatusOK, syncResponse{

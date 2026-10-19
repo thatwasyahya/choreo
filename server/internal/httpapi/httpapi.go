@@ -14,6 +14,7 @@ import (
 	"github.com/thatwasyahya/choreo/server/internal/auth"
 	"github.com/thatwasyahya/choreo/server/internal/obs"
 	"github.com/thatwasyahya/choreo/server/internal/store"
+	"github.com/thatwasyahya/choreo/server/internal/wake"
 )
 
 // Token lifetimes, from docs/AUTH.md.
@@ -75,6 +76,11 @@ type Deps struct {
 	// request: a Host header is set by the caller, and a household running its
 	// own instance must be able to invite people to ITS address.
 	PublicURL string
+
+	// Wake lets a sync call park until something happens in its household.
+	// With it nil, wait_ms is ignored and every call answers at once — which is
+	// what the tests want, and a client that polls is slower, not broken.
+	Wake *wake.Hub
 }
 
 // handlers carries what the authenticated routes need.
@@ -84,6 +90,7 @@ type handlers struct {
 	verifier  *auth.Verifier
 	limits    Limits
 	publicURL string
+	wake      *wake.Hub
 }
 
 // New builds the HTTP handler.
@@ -101,6 +108,7 @@ func New(d Deps) http.Handler {
 			verifier:  d.Verifier,
 			limits:    d.Limits,
 			publicURL: d.PublicURL,
+			wake:      d.Wake,
 		}
 		h.routes(mux)
 	}
