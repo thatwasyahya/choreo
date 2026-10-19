@@ -40,6 +40,23 @@ jobs:
   server:
     name: Server
     runs-on: ubuntu-latest
+
+    # Without a database the store and API tests SKIP, and a green run would
+    # mean nothing at all for the part of the server that holds the data.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: choreo
+          POSTGRES_PASSWORD: choreo
+          POSTGRES_DB: choreo_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U choreo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
     steps:
       - uses: actions/checkout@v4
 
@@ -58,7 +75,11 @@ jobs:
 
       - name: Test
         working-directory: server
-        run: go test -race ./...
+        # -p 1: packages share one test database and truncate between tests,
+        # so they must not run at the same time.
+        run: go test -race -p 1 ./...
+        env:
+          CHOREO_TEST_DATABASE_URL: postgres://choreo:choreo@localhost:5432/choreo_test?sslmode=disable
 
       - name: Lint
         working-directory: server

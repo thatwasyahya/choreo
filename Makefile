@@ -104,7 +104,11 @@ test: test-server test-app ## Run every test
 
 .PHONY: test-server
 test-server: ## Run the Go tests (integration tests skip without `make test-db`)
-	cd server && CHOREO_TEST_DATABASE_URL="$(TEST_DSN)" go test -race ./...
+	# -p 1 is load-bearing: `go test` runs PACKAGES in parallel, and every
+	# package that touches the database truncates the same choreo_test between
+	# its own tests. Without this they truncate each other mid-test, and the
+	# failure only shows up sometimes.
+	cd server && CHOREO_TEST_DATABASE_URL="$(TEST_DSN)" go test -race -p 1 ./...
 
 .PHONY: test-app
 test-app: generate ## Run the Flutter tests
