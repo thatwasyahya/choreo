@@ -5,16 +5,25 @@ import 'package:choreo/core/database.dart';
 import 'package:choreo/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
-/// The phase 0 verification screen.
+/// The verification screen, until the real ones arrive in lot L1.9.
 ///
-/// It exists to prove one thing: the app reads its own database, and talks to
-/// the server when it happens to be reachable. It is not a product screen and
-/// gets replaced in phase 1.
+/// It reports what the phone itself holds — tasks, the outbox, rows set aside —
+/// and what the server said if it happened to answer. Everything on it is read
+/// from the local database, so it is also the smallest honest demonstration
+/// that the app does not need the network to be useful.
 class CheckScreen extends StatefulWidget {
-  const CheckScreen({required this.database, required this.api, super.key});
+  const CheckScreen({
+    required this.database,
+    required this.api,
+    this.householdId = '',
+    super.key,
+  });
 
   final AppDatabase database;
   final ApiClient api;
+
+  /// Empty until a household has been joined, which is lot L1.9.
+  final String householdId;
 
   @override
   State<CheckScreen> createState() => _CheckScreenState();
@@ -22,8 +31,9 @@ class CheckScreen extends StatefulWidget {
 
 class _CheckScreenState extends State<CheckScreen> {
   ServerHealth? _health;
-  int _observations = 0;
-  DateTime? _latest;
+  int _tasks = 0;
+  int _pending = 0;
+  int _quarantined = 0;
   bool _busy = true;
 
   @override
@@ -35,24 +45,22 @@ class _CheckScreenState extends State<CheckScreen> {
   Future<void> _check() async {
     setState(() => _busy = true);
 
+    // The local counts first, and without waiting for the network: nothing on
+    // this screen is allowed to depend on the server answering.
+    final tasks = await widget.database.countTasks(widget.householdId);
+    final pending = await widget.database.pendingCount();
+    final quarantined = await widget.database.quarantinedCount();
+
     final health = await widget.api.health();
-
-    // Written locally first, always — including when the server answered.
-    // The phone's database is the one that has to be right.
-    await widget.database.record(
-      health.isReachable ? 'reachable' : 'unreachable',
-    );
-
-    final observations = await widget.database.countObservations();
-    final latest = await widget.database.latestObservation();
 
     if (!mounted) {
       return;
     }
     setState(() {
       _health = health;
-      _observations = observations;
-      _latest = latest?.observedAt;
+      _tasks = tasks;
+      _pending = pending;
+      _quarantined = quarantined;
       _busy = false;
     });
   }
@@ -61,7 +69,6 @@ class _CheckScreenState extends State<CheckScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final latest = _latest;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.checkTitle)),
@@ -79,13 +86,22 @@ class _CheckScreenState extends State<CheckScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  l10n.observationsRecorded(_observations),
+                  l10n.tasksStored(_tasks),
                   style: theme.textTheme.bodyLarge,
                 ),
-                if (latest != null)
+                Text(
+                  l10n.pendingToSend(_pending),
+                  style: theme.textTheme.bodyMedium,
+                ),
+                // Shown only when there is something to say. Rows set aside
+                // never block synchronisation, so a permanent zero would be
+                // noise.
+                if (_quarantined > 0)
                   Text(
-                    l10n.lastObservation(latest),
-                    style: theme.textTheme.bodyMedium,
+                    l10n.quarantinedRows(_quarantined),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
                   ),
               ],
             ),

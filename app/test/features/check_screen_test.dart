@@ -2,6 +2,7 @@ import 'package:choreo/core/api_client.dart';
 import 'package:choreo/core/database.dart';
 import 'package:choreo/features/check/check_screen.dart';
 import 'package:choreo/l10n/generated/app_localizations.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +38,19 @@ void main() {
   setUp(() => db = AppDatabase(NativeDatabase.memory()));
   tearDown(() => db.close());
 
+  Future<void> addTask(String title) {
+    return db
+        .into(db.tasks)
+        .insert(
+          TasksCompanion.insert(
+            id: 'task-$title',
+            householdId: 'home',
+            rev: 1,
+            title: Value(title),
+          ),
+        );
+  }
+
   testWidgets('reports the server version when the server answers', (
     tester,
   ) async {
@@ -45,6 +59,7 @@ void main() {
         CheckScreen(
           database: db,
           api: _answering('{"status":"ok","version":"1.2.3"}'),
+          householdId: 'home',
         ),
       ),
     );
@@ -55,12 +70,12 @@ void main() {
 
   // The whole point of the product: no network, still useful.
   testWidgets('still shows the local data with no network', (tester) async {
-    // The locale is pinned so the expected strings and the rendered ones come
-    // from the same language. Without it the widget falls back to the test
-    // environment's locale and the comparison is meaningless.
+    await addTask('Poubelles');
+    await addTask('Plombier');
+
     await tester.pumpWidget(
       _wrap(
-        CheckScreen(database: db, api: _offline()),
+        CheckScreen(database: db, api: _offline(), householdId: 'home'),
         locale: const Locale('fr'),
       ),
     );
@@ -68,8 +83,73 @@ void main() {
 
     final l10n = await AppLocalizations.delegate.load(const Locale('fr'));
     expect(find.text(l10n.serverUnreachable), findsOneWidget);
-    // The observation was recorded even though the server never replied.
-    expect(find.text(l10n.observationsRecorded(1)), findsOneWidget);
+    // Read from the phone's own database, with the server unreachable.
+    expect(find.text(l10n.tasksStored(2)), findsOneWidget);
+  });
+
+  // The outbox size is shown instead of a spinner: "3 gestures to send" is
+  // honest about what is happening, an hourglass is not.
+  testWidgets('shows how many gestures are waiting to go up', (tester) async {
+    await db
+        .into(db.outbox)
+        .insert(
+          OutboxCompanion.insert(
+            householdId: 'home',
+            opId: 'op-1',
+            kind: 'create',
+            entity: 'task',
+            rowId: 'row-1',
+            payload: '{}',
+            enqueuedElapsed: 0,
+          ),
+        );
+
+    await tester.pumpWidget(
+      _wrap(
+        CheckScreen(database: db, api: _offline(), householdId: 'home'),
+        locale: const Locale('fr'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final l10n = await AppLocalizations.delegate.load(const Locale('fr'));
+    expect(find.text(l10n.pendingToSend(1)), findsOneWidget);
+  });
+
+  // Rows set aside never block synchronisation, so a permanent zero would be
+  // noise. They appear only when there is something to say.
+  testWidgets('mentions rows set aside only when there are some', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        CheckScreen(database: db, api: _offline(), householdId: 'home'),
+        locale: const Locale('fr'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final l10n = await AppLocalizations.delegate.load(const Locale('fr'));
+    expect(find.text(l10n.quarantinedRows(0)), findsNothing);
+
+    await db
+        .into(db.quarantine)
+        .insert(
+          QuarantineCompanion.insert(
+            householdId: 'home',
+            entity: 'task',
+            rowId: 'row-1',
+            rev: 1,
+            raw: '{}',
+            error: 'unreadable',
+            atElapsed: 0,
+          ),
+        );
+
+    await tester.tap(find.text(l10n.retry));
+    await tester.pumpAndSettle();
+
+    expect(find.text(l10n.quarantinedRows(1)), findsOneWidget);
   });
 
   testWidgets('renders in French', (tester) async {

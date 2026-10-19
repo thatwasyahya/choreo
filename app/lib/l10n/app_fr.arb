@@ -8,7 +8,7 @@
 
   "checkTitle": "Vérification",
   "@checkTitle": {
-    "description": "Titre de l'écran de vérification technique de la phase 0."
+    "description": "Titre de l'écran de vérification technique, avant les vrais écrans."
   },
 
   "serverSection": "Serveur",
@@ -39,19 +39,27 @@
     "description": "Le serveur n'a pas répondu. Ce n'est pas une erreur : l'app fonctionne sans lui."
   },
 
-  "observationsRecorded": "{count, plural, =0{Aucune observation enregistrée} =1{1 observation enregistrée} other{{count} observations enregistrées}}",
-  "@observationsRecorded": {
-    "description": "Nombre d'observations conservées dans la base du téléphone.",
+  "tasksStored": "{count, plural, =0{Aucune tâche} =1{1 tâche} other{{count} tâches}}",
+  "@tasksStored": {
+    "description": "Nombre de tâches vivantes dans la base du téléphone.",
     "placeholders": {
       "count": { "type": "int" }
     }
   },
 
-  "lastObservation": "Dernière : {when}",
-  "@lastObservation": {
-    "description": "Date de l'observation la plus récente.",
+  "pendingToSend": "{count, plural, =0{Rien à envoyer} =1{1 geste à envoyer} other{{count} gestes à envoyer}}",
+  "@pendingToSend": {
+    "description": "Taille de la boîte d'envoi. Affiché à la place d'un indicateur d'activité : « 3 gestes à envoyer » est honnête, un sablier ne l'est pas.",
     "placeholders": {
-      "when": { "type": "DateTime", "format": "yMd" }
+      "count": { "type": "int" }
+    }
+  },
+
+  "quarantinedRows": "{count, plural, =1{1 ligne mise de côté} other{{count} lignes mises de côté}}",
+  "@quarantinedRows": {
+    "description": "Lignes reçues du serveur que cette version n'a pas su appliquer. Affiché seulement si le nombre est supérieur à zéro : elles ne bloquent jamais la synchronisation.",
+    "placeholders": {
+      "count": { "type": "int" }
     }
   },
 
@@ -60,7 +68,7 @@
     "description": "Relance la vérification."
   },
 
-  "offlineNote": "Cet écran fonctionne sans réseau : les observations sont lues dans la base du téléphone.",
+  "offlineNote": "Cet écran fonctionne sans réseau : tout est lu dans la base du téléphone.",
   "@offlineNote": {
     "description": "Rappelle que l'app est hors-ligne d'abord, pas hors-ligne tolérée."
   }
