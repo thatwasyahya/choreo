@@ -70,6 +70,9 @@ const (
 	OpRestore    = "restore"
 	OpComplete   = "complete"
 	OpUncomplete = "uncomplete"
+	// OpResolveNotice answers a card in the review tray. An operation and not
+	// an endpoint, so it works offline like everything else.
+	OpResolveNotice = "notice_resolve"
 )
 
 // Entities a pull returns. Completions and tags travel INSIDE their task's
@@ -187,6 +190,15 @@ type SyncOutput struct {
 	CursorSeq       int64
 	HasMore         bool
 	PurgeHorizonSeq int64
+
+	// SnapshotRequired means this cursor fell below the purge horizon: the
+	// changes it missed are gone, so the device has to rebuild from a snapshot.
+	//
+	// Said in a 200 rather than a 410 on purpose. A 410 would discard the
+	// operations the client just pushed, and "your cursor expired" must never
+	// mean "your fourteen offline edits are lost". The push is applied, the
+	// answer is complete, and the rebuild is a separate call.
+	SnapshotRequired bool
 }
 
 // Pull bounds. A page is capped so a phone returning after ten days does not

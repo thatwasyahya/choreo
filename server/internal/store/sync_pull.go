@@ -129,11 +129,16 @@ func (s *Store) pull(
 	}
 
 	return SyncOutput{
-		HeadSeq:         head,
-		Changes:         changes,
-		CursorSeq:       next,
-		HasMore:         hasMore,
+		HeadSeq:   head,
+		Changes:   changes,
+		CursorSeq: next,
+		HasMore:   hasMore,
+
 		PurgeHorizonSeq: horizon,
+		// A cursor of zero is a NEW device, not a broken one: taking a snapshot
+		// first is its normal starting state, and answering it with an error
+		// would be answering a non-problem.
+		SnapshotRequired: cursor > 0 && cursor < horizon,
 	}, nil
 }
 
