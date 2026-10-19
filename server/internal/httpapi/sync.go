@@ -33,8 +33,14 @@ type opEnvelope struct {
 	Entity   string           `json:"entity"`
 	RowID    string           `json:"row_id"`
 	BaseRevs map[string]int64 `json:"base_revs"`
+	BaseRev  *int64           `json:"base_rev"`
 	Fields   map[string]any   `json:"fields"`
-	ClientTS *time.Time       `json:"client_ts"`
+
+	CompletionID string   `json:"completion_id"`
+	OccurredOn   string   `json:"occurred_on"`
+	Observed     []string `json:"observed"`
+
+	ClientTS *time.Time `json:"client_ts"`
 }
 
 type syncResponse struct {
@@ -155,15 +161,37 @@ func parseOps(w http.ResponseWriter, raw []json.RawMessage) ([]store.Op, bool) {
 			}
 		}
 
+		var completionID uuid.UUID
+		if env.CompletionID != "" {
+			if completionID, err = uuid.Parse(env.CompletionID); err != nil {
+				writeJSON(w, http.StatusBadRequest, errorBody{Error: codeMalformed})
+				return nil, false
+			}
+		}
+
+		observed := make([]uuid.UUID, 0, len(env.Observed))
+		for _, raw := range env.Observed {
+			member, err := uuid.Parse(raw)
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, errorBody{Error: codeMalformed})
+				return nil, false
+			}
+			observed = append(observed, member)
+		}
+
 		ops = append(ops, store.Op{
-			OpID:     opID,
-			Kind:     env.Kind,
-			Entity:   env.Entity,
-			RowID:    rowID,
-			BaseRevs: env.BaseRevs,
-			Fields:   env.Fields,
-			ClientTS: env.ClientTS,
-			Raw:      payload,
+			OpID:         opID,
+			Kind:         env.Kind,
+			Entity:       env.Entity,
+			RowID:        rowID,
+			BaseRevs:     env.BaseRevs,
+			BaseRev:      env.BaseRev,
+			Fields:       env.Fields,
+			CompletionID: completionID,
+			OccurredOn:   env.OccurredOn,
+			Observed:     observed,
+			ClientTS:     env.ClientTS,
+			Raw:          payload,
 		})
 	}
 	return ops, true
