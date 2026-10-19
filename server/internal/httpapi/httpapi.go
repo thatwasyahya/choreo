@@ -127,4 +127,7 @@ func (h *handlers) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/households", h.requireAuth(h.createHousehold))
 	mux.HandleFunc("POST /v1/invites/redeem", h.requireAuth(h.redeemInvite))
 	mux.HandleFunc("POST /v1/households/{hid}/invites", h.requireMember(h.createInvite))
+
+	// The protocol itself.
+	mux.HandleFunc("POST /v1/households/{hid}/sync", h.requireMember(h.sync))
 }
