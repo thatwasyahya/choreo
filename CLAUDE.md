@@ -47,6 +47,10 @@ Source de vérité produit : `docs/CAHIER_DES_CHARGES.md`. Arbitrages et leurs r
 - **Les tests de `internal/store` s'ignorent silencieusement** sans
   `CHOREO_TEST_DATABASE_URL`. Un `ok ... 0.01s` sur ce paquet veut dire « rien n'a tourné ».
   `make test-db` d'abord, puis `make test-server` qui passe la variable.
+- **`go test` sans `-p 1` est instable** dès que deux paquets touchent la base : il lance
+  les *paquets* en parallèle, et chacun tronque `choreo_test` entre ses propres tests.
+  L'échec est intermittent, donc trompeur. `make test-server` pose le drapeau ; n'appelle
+  pas `go test ./...` à la main sans lui.
 - **`compose.yaml` ne publie aucun port PostgreSQL** (refus par défaut). Les surcouches
   `compose.test.yaml` (port 5433) et `compose.prod.yaml` (Caddy) sont les exceptions
   nommées. Un profil ne suffirait pas : Compose interpole les variables de tous les

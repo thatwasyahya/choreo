@@ -12,8 +12,46 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 |---|---|
 | L1.1 schéma serveur | **fait**, et ses garanties prouvées en base |
 | L1.2 authentification | **fait** — spécifié ([AUTH.md](AUTH.md)), implémenté, éprouvé de bout en bout |
-| L1.3 `POST /sync` | le lot central, pas commencé |
+| L1.3 `POST /sync` | **en cours** — résolution causale, idempotence et descente des changements faites ; restent `delete`, `restore`, `complete`, `uncomplete` et les séries |
 | L1.4 → L1.10 | pas commencés |
+
+**L1.3, ce qui tient déjà.** Quinze lignes de la table des règles ont chacune leur test,
+nommé d'après la règle. Le choix structurant : *classify* décide champ par champ **sans
+toucher la base**, donc les règles se lisent en un seul endroit et se testent sans
+transaction.
+
+| Règle | État |
+|---|---|
+| `base_rev == field_rev` → appliquée | ✓ |
+| champ jamais écrit → appliquée | ✓ |
+| `base_rev < field_rev` → **le serveur tient**, notice à l'auteur avec son texte intact | ✓ |
+| `base_rev > field_rev` → `malformed` (notre bug) | ✓ |
+| `set_fields` sur ligne inconnue → `target_gone`, **ne crée jamais la ligne** | ✓ |
+| édition contre suppression → notice `decision` à **l'éditeur** | ✓ |
+| opération inconnue → `unsupported_op`, **réessayable** | ✓ |
+| schéma violé → `malformed`, jamais montré | ✓ |
+| `op_id` rejoué, même hachage → `absorbed`, résultat stocké | ✓ |
+| `op_id` rejoué, hachage différent → `malformed` | ✓ |
+| validations, dévalidation, séries, réordonnancement | à faire |
+
+**Une instabilité de tests trouvée et corrigée** : `go test ./...` lance les *paquets* en
+parallèle, et deux paquets tronquaient la même base `choreo_test` entre leurs propres tests.
+L'échec n'apparaissait qu'une fois sur deux, ce qui est pire qu'un échec franc. `-p 1` est
+désormais dans `make test-server` et dans la CI, avec la raison écrite à côté. Vérifié par
+**trois passages sans cache**, le cache rendant un second passage sans valeur.
+
+**Et la CI a maintenant un PostgreSQL.** Sans lui, tous les tests d'intégration
+s'ignoraient : une CI verte ne disait rien de la moitié du serveur qui détient les données.
+
+Deux détails qui auraient coûté cher plus tard :
+
+- **La descente est un seul `UNION ALL` trié globalement par `rev`**, pas une requête par
+  entité fusionnée en Go. Avec des requêtes séparées, l'entité qui dépasse sa propre limite
+  voit ses lignes excédentaires passer sous le curseur — et elles sont perdues pour de bon.
+- **La page ne coupe jamais au milieu d'une révision.** Une opération écrit une ligne *et*
+  sa notice au même `rev` ; couper entre les deux avancerait le curseur au-delà de la
+  moitié jetée. Une notice perdue en silence est précisément ce que la table `notices`
+  côté serveur existe pour empêcher.
 
 **L1.2 est terminé.** Les onze points de terminaison de `AUTH.md` répondent, et les règles
 qui comptent sont vérifiées par un test chacune, à travers HTTP :
