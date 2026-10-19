@@ -17,7 +17,35 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 | L1.5 `GET /snapshot` et curseur périmé | **fait** |
 | L1.6 long poll | **fait** |
 | L1.7 schéma Drift | **fait** |
-| L1.8 → L1.10 (boucle de synchronisation, écrans, recette) | pas commencés |
+| L1.8 boucle de synchronisation | **faite** — reste la reconstruction par snapshot |
+| L1.9 → L1.10 (écrans, recette) | pas commencés |
+
+**La boucle tient ses trois règles, et chacune a son test.**
+
+**Une synchronisation ne révoque jamais la phrase qu'on est en train de taper.** Le champ
+reste dans `pending_fields` jusqu'à ce que le serveur ait répondu *à son sujet*, et un état
+entrant écrit tout **sauf** ceux-là. Le test le vérifie dans les deux sens : le titre en cours
+d'édition survit, **et** les autres champs du même état sont bien appliqués — sinon la règle
+dégénérerait en « ligne gelée ». C'est la **réception de la réponse** qui libère le champ, pas
+l'envoi du geste.
+
+**Le curseur ne bouge que sur ce que SQLite a réellement engagé.** La page entière et le
+curseur sont dans **une seule transaction**, donc un plantage en cours reprend où il s'est
+arrêté au lieu de laisser une demi-page à l'écran et un curseur au-delà.
+
+**Une ligne qu'on ne sait pas lire est mise de côté et le curseur avance quand même.** Le
+test envoie une entité inventée au milieu d'une page : elle part en `quarantine`, la ligne
+lisible est appliquée, et le curseur va jusqu'au bout. C'est aussi ce qui fait qu'une app
+ancienne survit à un serveur plus récent.
+
+Deux détails qui comptent :
+
+- **`unsupported_op` reste dans la file.** Un serveur plus vieux que l'app se corrige par un
+  déploiement ; jeter le geste empoisonnerait la file d'une vraie personne pour une erreur
+  d'ordre de déploiement. Un refus terminal, lui, quitte la file.
+- **Rejouer une page ne change rien.** Appliquer un état, c'est remplacer la ligne si la `rev`
+  entrante est supérieure — donc aucun moteur de fusion sur le téléphone, et aucun ordre
+  d'arrivée ne peut le casser.
 
 **Le schéma client est en deux moitiés, et la séparation porte une règle.**
 `lib/core/db/sync_tables.dart` miroir du serveur, `lib/core/db/local_tables.dart` ce qui ne
