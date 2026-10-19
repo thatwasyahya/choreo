@@ -90,6 +90,25 @@ func truncate(t *testing.T, dsn string) {
 	}
 }
 
+// execSQLFor sets up a state the API cannot produce — removing a member,
+// mostly. Tests may reach past the API; production code may not, and an
+// architecture test is what keeps that line.
+func execSQLFor(t *testing.T, query string, args ...any) {
+	t.Helper()
+
+	ctx := t.Context()
+
+	pool, err := pgxpool.New(ctx, os.Getenv("CHOREO_TEST_DATABASE_URL"))
+	if err != nil {
+		t.Fatalf("connecting for setup: %v", err)
+	}
+	defer pool.Close()
+
+	if _, err := pool.Exec(ctx, query, args...); err != nil {
+		t.Fatalf("setup query: %v", err)
+	}
+}
+
 // do sends a request and decodes whatever came back.
 func (a *api) do(method, path, token string, body any) (int, map[string]any) {
 	a.t.Helper()

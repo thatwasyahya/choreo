@@ -52,6 +52,12 @@ type syncResponse struct {
 	HasMore         bool             `json:"has_more"`
 	PurgeHorizonSeq int64            `json:"purge_horizon_seq"`
 
+	// SnapshotRequired tells the device to rebuild from GET /snapshot. It
+	// travels in a 200 and not a 410 so the operations just pushed are still
+	// applied and still answered: "your cursor expired" must never cost
+	// somebody their offline edits.
+	SnapshotRequired bool `json:"snapshot_required"`
+
 	// Version negotiation. A phone takes weeks to update, so the server says
 	// what it can still serve rather than letting an old client discover it by
 	// failing.
@@ -118,15 +124,16 @@ func (h *handlers) sync(
 	}
 
 	writeJSON(w, http.StatusOK, syncResponse{
-		ServerNow:       time.Now().UTC(),
-		HeadSeq:         out.HeadSeq,
-		Results:         out.Results,
-		Changes:         out.Changes,
-		CursorSeq:       out.CursorSeq,
-		HasMore:         out.HasMore,
-		PurgeHorizonSeq: out.PurgeHorizonSeq,
-		ProtocolMin:     protocolMin,
-		ProtocolMax:     protocolMax,
+		ServerNow:        time.Now().UTC(),
+		HeadSeq:          out.HeadSeq,
+		Results:          out.Results,
+		Changes:          out.Changes,
+		CursorSeq:        out.CursorSeq,
+		HasMore:          out.HasMore,
+		PurgeHorizonSeq:  out.PurgeHorizonSeq,
+		SnapshotRequired: out.SnapshotRequired,
+		ProtocolMin:      protocolMin,
+		ProtocolMax:      protocolMax,
 	})
 }
 

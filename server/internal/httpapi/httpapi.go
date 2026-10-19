@@ -130,4 +130,5 @@ func (h *handlers) routes(mux *http.ServeMux) {
 
 	// The protocol itself.
 	mux.HandleFunc("POST /v1/households/{hid}/sync", h.requireMember(h.sync))
+	mux.HandleFunc("GET /v1/households/{hid}/snapshot", h.requireMember(h.snapshot))
 }
