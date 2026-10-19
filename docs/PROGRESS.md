@@ -13,7 +13,26 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 | L1.1 schéma serveur | **fait**, et ses garanties prouvées en base |
 | L1.2 authentification | **fait** — spécifié ([AUTH.md](AUTH.md)), implémenté, éprouvé de bout en bout |
 | L1.3 `POST /sync` | **le vocabulaire est complet** — 22 règles, 22 tests ; restent les listes, le `order_key` fractionnaire et l'arithmétique de récurrence (Phase 2) |
-| L1.4 → L1.10 | pas commencés |
+| L1.4 notices et mutations refusées | **fait** — `notice_resolve` est une **opération**, pas un endpoint, donc répondre marche hors-ligne |
+| L1.5 `GET /snapshot` et curseur périmé | **fait** |
+| L1.6 long poll | pas commencé |
+| L1.7 → L1.10 (client Flutter, écrans, recette) | pas commencés |
+
+**Le snapshot tient la propriété qui compte.** Tout tourne dans **une seule transaction
+`REPEATABLE READ`, curseur lu dedans**. Sans cela, une écriture validée pendant le flux est
+absente du corps tout en portant une `rev` inférieure au curseur rendu : elle ne serait
+**jamais** relivrée, et l'appareil aurait tort sur son foyer pour toujours, en silence. Un
+test vérifie qu'aucune ligne du flux ne porte une `rev` au-dessus du curseur.
+
+Le flux se termine par une ligne `end` explicite, et c'est délibéré : dès le premier octet le
+statut est déjà `200`, donc une panne en cours de route ne peut que tronquer. Lire l'`end`
+est le seul moyen de distinguer un monde tronqué d'un monde clos.
+
+**Et le curseur périmé répond `200`, pas `410`.** Un `410` jetterait les opérations que le
+client vient de pousser — « ton curseur a expiré » ne doit jamais vouloir dire « tes quatorze
+modifications hors-ligne sont perdues ». Le serveur applique la poussée, répond normalement,
+et pose `snapshot_required`. Un test le prouve. Un curseur à zéro, lui, est un **appareil
+neuf** : c'est son état normal de départ, pas une faute.
 
 **L1.3, ce qui tient déjà.** Quinze lignes de la table des règles ont chacune leur test,
 nommé d'après la règle. Le choix structurant : *classify* décide champ par champ **sans
