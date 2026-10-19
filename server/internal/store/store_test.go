@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -116,6 +117,43 @@ func queryRow(t *testing.T, query string, args ...any) int64 {
 		t.Fatalf("assertion query: %v", err)
 	}
 	return value
+}
+
+// scanRow reads a single value straight from the database, for assertions about
+// columns the store deliberately does not expose.
+func scanRow(t *testing.T, into any, query string, args ...any) {
+	t.Helper()
+
+	ctx := t.Context()
+
+	pool, err := pgxpool.New(ctx, os.Getenv("CHOREO_TEST_DATABASE_URL"))
+	if err != nil {
+		t.Fatalf("connecting for an assertion: %v", err)
+	}
+	defer pool.Close()
+
+	if err := pool.QueryRow(ctx, query, args...).Scan(into); err != nil {
+		t.Fatalf("assertion query: %v", err)
+	}
+}
+
+// seal recomputes the raw payload after the extra fields of an operation have
+// been set.
+//
+// The idempotency hash is taken over the raw bytes, so a test that mutates an
+// op after newOp would otherwise hash something that is not what it sends.
+func seal(op store.Op) store.Op {
+	raw, err := json.Marshal(map[string]any{
+		"kind": op.Kind, "entity": op.Entity, "row_id": op.RowID,
+		"fields": op.Fields, "base_revs": op.BaseRevs, "base_rev": op.BaseRev,
+		"completion_id": op.CompletionID, "occurred_on": op.OccurredOn,
+		"observed": op.Observed,
+	})
+	if err != nil {
+		panic(err)
+	}
+	op.Raw = raw
+	return op
 }
 
 // account creates an account and returns its id.
