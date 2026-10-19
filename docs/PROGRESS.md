@@ -18,7 +18,32 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 | L1.6 long poll | **fait** |
 | L1.7 schéma Drift | **fait** |
 | L1.8 boucle de synchronisation | **faite** — reste la reconstruction par snapshot |
-| L1.9 → L1.10 (écrans, recette) | pas commencés |
+| L1.9 écrans | **le chemin d'écriture est fait et testé** ; restent les widgets |
+| L1.10 recette des sept cas | pas commencée |
+
+**La reconstruction par snapshot est faite**, avec la propriété qui la rend sûre : **rien
+n'est appliqué avant d'avoir vu la ligne `end`**. Le snapshot est un monde clos — il supprime
+localement ce qui en est absent — donc un flux tronqué se lirait comme « tout le reste a été
+supprimé ». Les lignes sont collectées puis validées d'un bloc ; tenir une transaction
+d'écriture ouverte pendant un aller-retour réseau serait le pire des deux. Un test coupe le
+flux avant l'`end` et vérifie que **rien n'a été supprimé**. Et la boîte d'envoi n'est jamais
+touchée : les lignes qu'elle référence survivent au balayage.
+
+**Le serveur lève maintenant une carte pour les refus qui concernent la personne** — une
+édition dont la ligne a été purgée, une validation sur quelque chose qui n'existe plus, un
+retour en arrière que la série refuse. Mais **pas** pour un `malformed` : c'est notre bug,
+et l'utilisateur n'est pas notre supervision. Pas non plus pour une suppression dont la cible
+avait déjà disparu — la personne a ce qu'elle voulait. Trois tests tiennent cette frontière.
+
+**Le chemin d'écriture local** (`TaskRepository`) est écrit et testé sans aucun réseau, ce
+qui est exactement le point. Chaque geste fait deux choses dans **une seule transaction** :
+il change la ligne locale, et il met l'intention en file. Une transaction et non deux, parce
+qu'un plantage entre les deux perdrait le geste ou afficherait un changement qui ne partira
+jamais — et le second est pire, puisque personne ne peut s'en apercevoir.
+
+Un choix d'architecture au passage : **l'interface écoute SQLite** via les flux de Drift. Le
+moteur de synchronisation écrit dans SQLite, l'écran se met à jour tout seul. C'est une pièce
+mobile de moins à justifier, et c'est cohérent avec « le téléphone est la base de données ».
 
 **La boucle tient ses trois règles, et chacune a son test.**
 
