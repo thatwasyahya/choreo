@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/thatwasyahya/choreo/server/internal/wake"
 )
 
 // nextSeq increments and returns the household's change sequence.
@@ -39,6 +40,16 @@ func (s *Store) nextSeq(ctx context.Context, tx pgx.Tx, householdID uuid.UUID) (
 		}
 		return 0, fmt.Errorf("store: bumping the household sequence: %w", err)
 	}
+
+	// Announced from INSIDE the transaction, so PostgreSQL delivers it on
+	// commit and never before. A notification sent early would wake a client
+	// that then reads the state as it was, and it would wait out its whole
+	// timeout for a change it had already been told about.
+	if _, err := tx.Exec(ctx, "SELECT pg_notify($1, $2)",
+		wake.Channel, householdID.String()); err != nil {
+		return 0, fmt.Errorf("store: announcing a change: %w", err)
+	}
+
 	return seq, nil
 }
 
