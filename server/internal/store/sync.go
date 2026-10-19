@@ -76,6 +76,14 @@ func (s *Store) applyOne(
 			result, err = s.opCreate(ctx, tx, householdID, in, op)
 		case OpSetFields:
 			result, err = s.opSetFields(ctx, tx, householdID, in, op)
+		case OpDelete:
+			result, err = s.opDelete(ctx, tx, householdID, in, op)
+		case OpRestore:
+			result, err = s.opRestore(ctx, tx, householdID, in, op)
+		case OpComplete:
+			result, err = s.opComplete(ctx, tx, householdID, in, op)
+		case OpUncomplete:
+			result, err = s.opUncomplete(ctx, tx, householdID, in, op)
 		default:
 			// Retryable on purpose. A server older than the app is ordinary
 			// with direct APK distribution, and a deploy-order mistake must not

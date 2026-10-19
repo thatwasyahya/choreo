@@ -41,7 +41,25 @@ const (
 	ReasonUnsupportedOp = "unsupported_op"
 	// ReasonMalformed: our bug, not theirs. Logged, never shown.
 	ReasonMalformed = "malformed"
+	// ReasonStaleDelete: the editor had already won. A deletion destroys, so it
+	// asks rather than imposes.
+	ReasonStaleDelete = "stale_delete"
+	// ReasonEditVsDelete: the deletion holds the display; the edit is kept.
+	ReasonEditVsDelete = "edit_vs_delete"
+	// ReasonSuccessorInUse: going back would discard work already done on the
+	// next occurrence. The only place a completion-related gesture may be
+	// refused, and the line is drawn here on purpose: un-ticking destroys a
+	// fact the whole household can see, whereas ticking only ever adds.
+	ReasonSuccessorInUse = "successor_in_use"
 )
+
+// occurredOnWindow bounds how far back a completion may be dated.
+//
+// Fourteen days covers "I forgot to tick it last week", which is the real case.
+// Thirty would widen the window in which a handset on the wrong date can shift
+// a completion, to serve "I am catching up on August" — which does not happen
+// (decision D-020, Q7).
+const occurredOnWindow = 14
 
 // Operation kinds the server understands. Adding one is a protocol version
 // bump, not a tweak — which is why the list is here and nowhere else.
@@ -86,6 +104,25 @@ type Op struct {
 	// know are kept in the row's ext column rather than refused, which is what
 	// makes a newer app's write survive against an older server.
 	Fields map[string]any
+
+	// BaseRev is the row-level revision the author had seen. Used by the
+	// operations that act on a whole row rather than on fields: delete and
+	// restore.
+	BaseRev *int64
+
+	// CompletionID is minted by the client and is the deduplication key for
+	// points: the same tick replayed must not be counted twice.
+	CompletionID uuid.UUID
+
+	// OccurredOn is PROPOSED by the client and BOUNDED by the server. "I forgot
+	// to tick it last week" is legitimate; "I am catching up on August" is a
+	// wrong clock or a wrong idea.
+	OccurredOn string
+
+	// Observed lists the completions the author actually had in front of them,
+	// for uncomplete. Unticking in the kitchen must not erase a completion
+	// recorded in the garage ten seconds earlier.
+	Observed []uuid.UUID
 
 	// ClientTS is the phone's clock. Stored, never believed.
 	ClientTS *time.Time
