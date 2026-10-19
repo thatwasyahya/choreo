@@ -101,7 +101,9 @@ void main() {
             kind: 'set_fields',
             entity: 'task',
             rowId: rowId,
-            payload: jsonEncode(fields),
+            // The payload is the operation's own body: a rename carries its
+            // changed fields under 'fields'.
+            payload: jsonEncode({'fields': fields}),
             enqueuedElapsed: 0,
           ),
         );
