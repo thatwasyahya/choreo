@@ -114,7 +114,10 @@ func (s *Store) opRestore(
 			return OpResult{}, err
 		}
 		if !allowed {
-			return refusal(op.OpID, ReasonSuccessorInUse), nil
+			// Same as un-ticking: refused, but with something a person can act
+			// on rather than a dead end.
+			return s.refuseAndTell(
+				ctx, tx, householdID, in, op, ReasonSuccessorInUse, nil)
 		}
 	}
 

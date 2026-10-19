@@ -226,6 +226,70 @@ func TestCannotResolveSomebodyElsesNotice(t *testing.T) {
 	}
 }
 
+// Somebody typed something the server could not put anywhere. That must not
+// disappear quietly, so the author gets a card carrying their text.
+func TestARefusedEditTellsItsAuthor(t *testing.T) {
+	w := newWorld(t)
+
+	out := w.apply(newOp(store.OpSetFields, store.EntityTask, uuid.New(),
+		map[string]any{"title": "Écrit dans le vide"}, nil))
+
+	result := out.Results[0]
+	if result.Code != store.ReasonTargetGone {
+		t.Fatalf("code = %q, want target_gone", result.Code)
+	}
+	if result.NoticeID == nil {
+		t.Fatal("no card: the author would never learn their edit went nowhere")
+	}
+
+	notice := noticeIn(t, out)
+	if notice.State["kind"] != "refusal" {
+		t.Errorf("notice kind = %v, want refusal", notice.State["kind"])
+	}
+	mine, _ := notice.State["mine"].(map[string]any)
+	if mine["title"] != "Écrit dans le vide" {
+		t.Errorf("the card does not carry what the author typed: %v", mine)
+	}
+}
+
+// And the other side of that line: a malformed operation is OUR bug, not
+// theirs. The user is not our monitoring, so no card appears.
+func TestOurOwnBugRaisesNoCard(t *testing.T) {
+	w := newWorld(t)
+	id, rev := w.task("Poubelles")
+
+	// priority is a smallint; a string there is a client bug, which is to say
+	// ours.
+	out := w.apply(newOp(store.OpSetFields, store.EntityTask, id,
+		map[string]any{"priority": "haute"}, map[string]int64{"priority": rev}))
+
+	result := out.Results[0]
+	if result.Code != store.ReasonMalformed {
+		t.Fatalf("code = %q, want malformed", result.Code)
+	}
+	if result.NoticeID != nil {
+		t.Error("a card was raised for our own bug")
+	}
+
+	for _, change := range out.Changes {
+		if change.Entity == "notice" {
+			t.Error("a notice travelled down for a malformed operation")
+		}
+	}
+}
+
+// A deletion whose target is already gone gets what it asked for. Telling
+// somebody "the thing you wanted removed is removed" is noise.
+func TestADeletionOfSomethingAlreadyGoneSaysNothing(t *testing.T) {
+	w := newWorld(t)
+
+	out := w.apply(newOp(store.OpDelete, store.EntityTask, uuid.New(), nil, nil))
+
+	if result := out.Results[0]; result.NoticeID != nil {
+		t.Error("a card was raised for a deletion that was already satisfied")
+	}
+}
+
 func TestResolvingWithoutAChoiceIsMalformed(t *testing.T) {
 	w := newWorld(t)
 	notice := w.staleNotice()

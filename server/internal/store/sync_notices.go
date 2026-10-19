@@ -15,6 +15,51 @@ const (
 	ChoiceDismiss = "dismiss"
 )
 
+// refuseAndTell records a refusal AND a card about it.
+//
+// Not every refusal earns one, and the line is drawn deliberately:
+//
+//   - `malformed` gets NO notice. It is our bug, not theirs, and the user is
+//     not our monitoring. It goes to the ledger and the logs.
+//   - `unsupported_op` gets NO notice. The client retries it after a deploy;
+//     a card would be an apology for something that fixes itself.
+//   - `target_gone` on a DELETE gets no notice either: the person wanted the
+//     thing gone, and it is gone. Telling them would be noise.
+//
+// What does earn a card is the case where somebody did work the server could
+// not record — an edit whose row has been purged, a tick on something that no
+// longer exists, a step back the series will not allow. Those must never
+// vanish quietly.
+func (s *Store) refuseAndTell(
+	ctx context.Context, tx pgx.Tx, householdID uuid.UUID,
+	in SyncInput, op Op, code string, mine map[string]any,
+) (OpResult, error) {
+	seq, err := s.nextSeq(ctx, tx, householdID)
+	if err != nil {
+		return OpResult{}, err
+	}
+
+	if mine == nil {
+		mine = map[string]any{}
+	}
+
+	noticeID, err := s.writeNotice(ctx, tx, householdID, in, op, noticeSpec{
+		kind: "refusal",
+		code: code,
+		mine: mine,
+	}, seq)
+	if err != nil {
+		return OpResult{}, err
+	}
+
+	return OpResult{
+		OpID:     op.OpID,
+		Outcome:  OutcomeRefused,
+		Code:     code,
+		NoticeID: &noticeID,
+	}, nil
+}
+
 // opResolveNotice closes a card in the "to review" tray.
 //
 // An ordinary operation rather than an endpoint, which is the point: answering

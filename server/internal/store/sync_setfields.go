@@ -55,10 +55,12 @@ func (s *Store) opSetFields(
 		Scan(&currentRev, &fieldRevs, &deleted, &heldBy, &row)
 	switch {
 	case errorsIsNoRows(err):
-		// The content is kept in the ledger. Without this rule a purged row
-		// resurrects piecemeal, and the purge destroys the evidence an arbiter
-		// would need.
-		return refusal(op.OpID, ReasonTargetGone), nil
+		// The content is kept in the ledger, and the author gets a card: they
+		// typed something the server could not put anywhere, and that must not
+		// disappear quietly. Without this rule a purged row would resurrect
+		// piecemeal, and the purge would destroy the evidence an arbiter needs.
+		return s.refuseAndTell(
+			ctx, tx, householdID, in, op, ReasonTargetGone, op.Fields)
 	case err != nil:
 		return OpResult{}, fmt.Errorf("store: loading a task: %w", err)
 	}

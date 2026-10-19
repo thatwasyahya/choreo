@@ -57,13 +57,15 @@ func (s *Store) opComplete(
 	if err != nil {
 		return OpResult{}, err
 	}
+	// A tick is work somebody actually did. If the server cannot record it, the
+	// one thing it must not do is stay silent about it.
 	if !found {
-		return refusal(op.OpID, ReasonTargetGone), nil
+		return s.refuseAndTell(ctx, tx, householdID, in, op, ReasonTargetGone, nil)
 	}
 	if target.deleted {
 		// The row is gone from the display; recording a tick against it would
 		// be recording work on something nobody can see.
-		return refusal(op.OpID, ReasonTargetGone), nil
+		return s.refuseAndTell(ctx, tx, householdID, in, op, ReasonTargetGone, nil)
 	}
 
 	seq, err := s.nextSeq(ctx, tx, householdID)
@@ -187,7 +189,12 @@ func (s *Store) opUncomplete(
 			// Refusing an UNtick is acceptable where refusing a tick never is:
 			// unticking destroys a fact the whole household can see, whereas
 			// ticking only ever adds.
-			return refusal(op.OpID, ReasonSuccessorInUse), nil
+			//
+			// But it is refused WITH a sentence a person can act on, never a
+			// silent no: "cannot go back, the next occurrence has already been
+			// changed".
+			return s.refuseAndTell(
+				ctx, tx, householdID, in, op, ReasonSuccessorInUse, nil)
 		}
 	}
 
