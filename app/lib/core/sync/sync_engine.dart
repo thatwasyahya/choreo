@@ -25,6 +25,25 @@ class SyncReport {
   final bool hasMore;
 }
 
+/// What one rebuild did.
+class SnapshotReport {
+  const SnapshotReport({
+    required this.applied,
+    required this.removed,
+    required this.quarantined,
+    required this.cursorSeq,
+  });
+
+  final int applied;
+
+  /// Local rows the snapshot had never heard of, and which nothing in the
+  /// outbox still referenced.
+  final int removed;
+
+  final int quarantined;
+  final int cursorSeq;
+}
+
 /// The loop: drain the outbox, apply what comes back.
 ///
 /// Three rules shape every line of it, and each one closes a way the app could
@@ -365,6 +384,197 @@ class SyncEngine {
             atElapsed: _elapsed,
           ),
         );
+  }
+
+  /// Rebuild the whole household from a snapshot.
+  ///
+  /// Used when the cursor has fallen below what the server still keeps, and for
+  /// a brand new device — which is its normal starting state, not a fault.
+  ///
+  /// Two things are deliberate and neither is an optimisation:
+  ///
+  /// **Nothing is applied until the `end` line has been seen.** The snapshot is
+  /// a closed world: it deletes whatever is absent from it. A stream cut short
+  /// would therefore read as "everything else was deleted", which is why the
+  /// rows are collected first and committed in one go. A household is a few
+  /// hundred kilobytes; holding a write transaction open across the network
+  /// instead would be the worse trade.
+  ///
+  /// **The outbox is never touched.** "Your cursor expired" must not be allowed
+  /// to mean "your fourteen offline edits are gone", so rows the queue still
+  /// references survive the closed-world sweep even when the snapshot has never
+  /// heard of them.
+  Future<SnapshotReport> rebuild(String householdId) async {
+    final identity = await db.select(db.deviceIdentity).getSingleOrNull();
+    final token = identity?.accessToken;
+    if (token == null || token.isEmpty) {
+      throw const SyncException(SyncFailure.unauthenticated, 'no access token');
+    }
+
+    final lines = await api.snapshotLines(
+      householdId: householdId,
+      accessToken: token,
+    );
+
+    SnapshotHeader? header;
+    final rows = <RowChange>[];
+    var ended = false;
+    var declared = -1;
+
+    await for (final line in lines) {
+      if (line.trim().isEmpty) {
+        continue;
+      }
+
+      final Map<String, dynamic> parsed;
+      try {
+        parsed = jsonDecode(line) as Map<String, dynamic>;
+      } on Exception catch (error) {
+        throw SyncException(SyncFailure.unreadable, 'snapshot line: $error');
+      }
+
+      switch (parsed['type']) {
+        case 'header':
+          header = SnapshotHeader.fromJson(parsed);
+        case 'end':
+          ended = true;
+          declared = (parsed['rows'] as num?)?.toInt() ?? -1;
+        default:
+          rows.add(
+            RowChange(
+              entity: parsed['type'] as String? ?? '',
+              rowId: parsed['row_id'] as String? ?? '',
+              rev: (parsed['rev'] as num?)?.toInt() ?? 0,
+              // A snapshot carries no tombstones: there is no need to learn
+              // about the deletion of a row one has never heard of.
+              deleted: false,
+              state: (parsed['state'] as Map<String, dynamic>?) ?? const {},
+            ),
+          );
+      }
+    }
+
+    if (header == null || !ended) {
+      throw const SyncException(
+        SyncFailure.unreadable,
+        'truncated snapshot: refusing to treat a partial world as a closed one',
+      );
+    }
+    if (declared != rows.length) {
+      throw SyncException(
+        SyncFailure.unreadable,
+        'snapshot declared $declared rows and carried ${rows.length}',
+      );
+    }
+
+    var applied = 0;
+    var quarantined = 0;
+    var removed = 0;
+
+    await db.transaction(() async {
+      for (final row in rows) {
+        try {
+          await _applyChange(householdId, row);
+          applied++;
+        } on Exception catch (error) {
+          await _setAside(householdId, row, error.toString());
+          quarantined++;
+        }
+      }
+
+      removed = await _sweepAbsent(householdId, rows);
+
+      await db
+          .into(db.syncCursors)
+          .insertOnConflictUpdate(
+            SyncCursorsCompanion(
+              householdId: Value(householdId),
+              cursorSeq: Value(header!.cursorSeq),
+              purgeHorizonSeq: Value(header.purgeHorizonSeq),
+              lastSyncElapsed: Value(_elapsed),
+              lastOutcome: const Value('snapshot'),
+            ),
+          );
+    });
+
+    return SnapshotReport(
+      applied: applied,
+      removed: removed,
+      quarantined: quarantined,
+      cursorSeq: header.cursorSeq,
+    );
+  }
+
+  /// Drop local rows the snapshot has never heard of.
+  ///
+  /// This is how a row deleted a hundred days ago finally leaves a phone that
+  /// was away, and it is the reason the server can afford to purge for real.
+  ///
+  /// Rows the outbox still references are kept: the queue is about to talk
+  /// about them, and deleting them here would turn an expired cursor into lost
+  /// work.
+  Future<int> _sweepAbsent(String householdId, List<RowChange> rows) async {
+    final referenced =
+        (await (db.select(
+              db.outbox,
+            )..where((o) => o.householdId.equals(householdId))).get())
+            .map((entry) => entry.rowId)
+            .toSet();
+
+    Set<String> keep(String entity) {
+      return {
+        ...rows.where((r) => r.entity == entity).map((r) => r.rowId),
+        ...referenced,
+      };
+    }
+
+    var removed = 0;
+
+    final taskKeep = keep('task');
+    final localTasks = await (db.select(
+      db.tasks,
+    )..where((t) => t.householdId.equals(householdId))).get();
+    for (final row in localTasks) {
+      if (!taskKeep.contains(row.id)) {
+        await (db.delete(db.tasks)
+              ..where((t) => t.householdId.equals(householdId))
+              ..where((t) => t.id.equals(row.id)))
+            .go();
+        removed++;
+      }
+    }
+
+    final memberKeep = keep('member');
+    final localMembers = await (db.select(
+      db.members,
+    )..where((m) => m.householdId.equals(householdId))).get();
+    for (final row in localMembers) {
+      if (!memberKeep.contains(row.id)) {
+        await (db.delete(db.members)
+              ..where((m) => m.householdId.equals(householdId))
+              ..where((m) => m.id.equals(row.id)))
+            .go();
+        removed++;
+      }
+    }
+
+    // Notices are swept too: a snapshot only carries the unresolved ones, so a
+    // card somebody has already answered disappearing is the right outcome.
+    final noticeKeep = keep('notice');
+    final localNotices = await (db.select(
+      db.notices,
+    )..where((n) => n.householdId.equals(householdId))).get();
+    for (final row in localNotices) {
+      if (!noticeKeep.contains(row.id)) {
+        await (db.delete(db.notices)
+              ..where((n) => n.householdId.equals(householdId))
+              ..where((n) => n.id.equals(row.id)))
+            .go();
+        removed++;
+      }
+    }
+
+    return removed;
   }
 
   Future<void> _advance(String householdId, SyncResponse response) async {

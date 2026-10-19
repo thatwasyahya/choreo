@@ -211,5 +211,68 @@ class SyncApi {
     }
   }
 
+  /// The reset path: every live row of a household, as NDJSON.
+  ///
+  /// Returned as a line stream rather than a parsed body. The caller has to see
+  /// the explicit `end` line before applying anything, because the snapshot is
+  /// a closed world — it deletes whatever is absent from it — and a stream cut
+  /// short would read as "everything else was deleted".
+  Future<Stream<String>> snapshotLines({
+    required String householdId,
+    required String accessToken,
+  }) async {
+    final request = http.Request(
+      'GET',
+      Uri.parse('$_baseUrl/v1/households/$householdId/snapshot'),
+    )..headers['Authorization'] = 'Bearer $accessToken';
+
+    final http.StreamedResponse response;
+    try {
+      response = await _http.send(request).timeout(_timeout);
+    } on Exception catch (error) {
+      throw SyncException(SyncFailure.offline, error.toString());
+    }
+
+    switch (response.statusCode) {
+      case 200:
+        return response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter());
+
+      case 401:
+        // The body is a stream here, so the code cannot be read from it the
+        // way the sync call does. Treated as a plain expiry: a revoked device
+        // learns the difference on its next sync call, which is cheap.
+        throw const SyncException(SyncFailure.unauthenticated);
+
+      default:
+        throw SyncException(
+          SyncFailure.unreadable,
+          'status ${response.statusCode}',
+        );
+    }
+  }
+
   void close() => _http.close();
+}
+
+/// What the first line of a snapshot says.
+class SnapshotHeader {
+  const SnapshotHeader({
+    required this.cursorSeq,
+    this.purgeHorizonSeq = 0,
+    this.tz = '',
+  });
+
+  factory SnapshotHeader.fromJson(Map<String, dynamic> json) {
+    return SnapshotHeader(
+      cursorSeq: (json['cursor_seq'] as num?)?.toInt() ?? 0,
+      purgeHorizonSeq: (json['purge_horizon_seq'] as num?)?.toInt() ?? 0,
+      tz: json['tz'] as String? ?? '',
+    );
+  }
+
+  final int cursorSeq;
+  final int purgeHorizonSeq;
+  final String tz;
 }
