@@ -111,20 +111,48 @@ class SyncEngine {
         .get();
   }
 
+  /// The wire form of one queued intent.
+  ///
+  /// The stored payload is the operation's own body and differs by kind, so it
+  /// is spread into the envelope rather than nested under one name that would
+  /// only fit half the kinds.
   Map<String, dynamic> _wire(OutboxData entry) {
+    final payload = jsonDecode(entry.payload) as Map<String, dynamic>;
+
     return {
       'op_id': entry.opId,
       'kind': entry.kind,
       'entity': entry.entity,
       'row_id': entry.rowId,
-      'fields': jsonDecode(entry.payload),
       'base_revs': jsonDecode(entry.baseRevs),
+      ...payload,
       if (entry.clientTs != null)
         'client_ts': DateTime.fromMillisecondsSinceEpoch(
           entry.clientTs!,
           isUtc: true,
         ).toIso8601String(),
     };
+  }
+
+  /// Which local fields this gesture is holding.
+  ///
+  /// A rename holds the field it renamed; a tick holds the completion set, so
+  /// another member's state arriving mid-flight cannot make somebody's own tick
+  /// vanish under them.
+  Set<String> _heldBy(OutboxData entry) {
+    final payload = jsonDecode(entry.payload) as Map<String, dynamic>;
+
+    switch (entry.kind) {
+      case 'create':
+      case 'set_fields':
+        final fields = (payload['fields'] as Map<String, dynamic>?) ?? const {};
+        return fields.keys.toSet();
+      case 'complete':
+      case 'uncomplete':
+        return {'completions'};
+      default:
+        return const {};
+    }
   }
 
   Future<SyncReport> _apply(
@@ -198,7 +226,7 @@ class SyncEngine {
       return;
     }
 
-    final touched = (jsonDecode(entry.payload) as Map<String, dynamic>).keys;
+    final touched = _heldBy(entry);
     final pending = (jsonDecode(row.pendingFields) as List<dynamic>)
         .cast<String>()
         .where((field) => !touched.contains(field))
