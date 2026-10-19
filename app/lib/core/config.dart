@@ -12,4 +12,12 @@ abstract final class AppConfig {
     'CHOREO_SERVER_URL',
     defaultValue: 'http://localhost:8080',
   );
+
+  /// Sent on every synchronisation call, and stored by the server next to each
+  /// operation. It is what lets somebody look at a strange row at two in the
+  /// morning and know which version of the app wrote it.
+  static const String version = String.fromEnvironment(
+    'CHOREO_APP_VERSION',
+    defaultValue: 'dev',
+  );
 }
