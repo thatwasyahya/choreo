@@ -15,8 +15,27 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 | L1.3 `POST /sync` | **le vocabulaire est complet** — 22 règles, 22 tests ; restent les listes, le `order_key` fractionnaire et l'arithmétique de récurrence (Phase 2) |
 | L1.4 notices et mutations refusées | **fait** — `notice_resolve` est une **opération**, pas un endpoint, donc répondre marche hors-ligne |
 | L1.5 `GET /snapshot` et curseur périmé | **fait** |
-| L1.6 long poll | pas commencé |
+| L1.6 long poll | **fait** |
 | L1.7 → L1.10 (client Flutter, écrans, recette) | pas commencés |
+
+**Le serveur de la Phase 1 est complet.** Le long poll se gare sur une goroutine et
+**rien d'autre** : `ApplySync` a rendu sa connexion et sa transaction avant l'attente. Un
+test le prouve en comptant les connexions `idle in transaction` pendant que six appels sont
+garés — zéro. C'est l'affirmation sur laquelle repose le plafond de coût de `D-005`, donc
+elle est mesurée et pas déclarée.
+
+Deux détails que l'implémentation a imposés :
+
+- **L'abonnement se fait avant la lecture.** Un changement validé entre la lecture et
+  l'inscription serait perdu, et le client attendrait son timeout entier pour quelque chose
+  qui avait déjà eu lieu.
+- **Le `NOTIFY` part de l'intérieur de la transaction**, donc PostgreSQL ne le livre qu'à la
+  validation. Envoyé plus tôt, il réveillerait un client qui relirait l'état d'avant.
+- **La connexion `LISTEN` est hors du pool.** Une seule pour tout le processus, tenue à vie :
+  la prendre dans le pool coûterait au pool une connexion pour toujours, et le pool existe
+  pour servir les requêtes. Sa mort silencieuse est la seule panne qui laisse tous les longs
+  appels expirer sans réveil — elle ne perd rien, mais elle est journalisée bruyamment avec
+  sa conséquence écrite en clair.
 
 **Le snapshot tient la propriété qui compte.** Tout tourne dans **une seule transaction
 `REPEATABLE READ`, curseur lu dedans**. Sans cela, une écriture validée pendant le flux est
