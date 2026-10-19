@@ -85,6 +85,10 @@ psql: .env ## Open a psql session on the local database
 
 .PHONY: generate
 generate: ## Regenerate the Drift and localisation code
+	# Two generators, and build_runner does NOT run the second one: changing an
+	# .arb file and only running build_runner leaves the old strings in place,
+	# and the error then points at the widget rather than at the translation.
+	cd app && flutter gen-l10n
 	# --force-jit is required, not optional: build_runner AOT-compiles its own
 	# build script with `dart compile`, which refuses any package carrying a
 	# native build hook — and sqlite3, under drift, carries one.

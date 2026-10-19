@@ -16,7 +16,38 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 | L1.4 notices et mutations refusées | **fait** — `notice_resolve` est une **opération**, pas un endpoint, donc répondre marche hors-ligne |
 | L1.5 `GET /snapshot` et curseur périmé | **fait** |
 | L1.6 long poll | **fait** |
-| L1.7 → L1.10 (client Flutter, écrans, recette) | pas commencés |
+| L1.7 schéma Drift | **fait** |
+| L1.8 → L1.10 (boucle de synchronisation, écrans, recette) | pas commencés |
+
+**Le schéma client est en deux moitiés, et la séparation porte une règle.**
+`lib/core/db/sync_tables.dart` miroir du serveur, `lib/core/db/local_tables.dart` ce qui ne
+quitte jamais le téléphone.
+
+**Aucun `CHECK`, aucune clé étrangère sur une colonne synchronisée.** Les pages arrivent en
+ordre de `rev`, pas en ordre causal : une tâche peut référencer une catégorie pas encore
+livrée, et un serveur plus récent peut envoyer une valeur que cette app n'a jamais vue.
+L'écran doit afficher « Sans catégorie », pas une exception.
+
+Cette règle a une conséquence concrète en Drift qu'il faut connaître : **`boolean()` génère
+un `CHECK (col IN (0,1))` et `withLength()` un `CHECK` de longueur.** Les deux manières
+évidentes d'écrire ces tables produisent donc exactement les contraintes qui les cassent.
+D'où des `IntColumn` pour les drapeaux synchronisés, et **un test qui lit le DDL dans
+`sqlite_master`** et échoue s'il contient `CHECK` ou `REFERENCES`. C'est le pendant des tests
+d'architecture Go : la règle est mécanique, pas une convention à se rappeler.
+
+Deux autres choix du protocole, respectés tels quels :
+
+- **`outbox.lseq` est un entier autoincrémenté, jamais un horodatage.** Sur un téléphone,
+  l'autoincrément est la seule chose monotone — l'horloge murale recule dès que le réseau la
+  corrige. Un test insère des `client_ts` *décroissants* et vérifie que l'ordre de rejeu reste
+  celui des gestes.
+- **Une ligne qu'on n'a pas su appliquer va en `quarantine` et le curseur avance quand
+  même.** Une seule ligne illisible ne doit jamais geler toute la synchronisation d'un
+  téléphone, en silence.
+
+Et `pending_fields` est sur chaque ligne : quand un état serveur arrive, le client écrira tous
+les champs **sauf** ceux qui y figurent. C'est le seul mécanisme fiable contre la
+synchronisation qui révoque la phrase qu'on est en train de taper.
 
 **Le serveur de la Phase 1 est complet.** Le long poll se gare sur une goroutine et
 **rien d'autre** : `ApplySync` a rendu sa connexion et sa transaction avant l'attente. Un

@@ -43,6 +43,16 @@ Source de vérité produit : `docs/CAHIER_DES_CHARGES.md`. Arbitrages et leurs r
   sans l'autre casse la résolution. Les raisons sont dans `app/pubspec.yaml`.
 - **Le code généré n'est pas versionné** (`*.g.dart`, `lib/l10n/generated/`). Après un
   clone : `make generate` avant `flutter analyze`.
+- **`build_runner` ne régénère pas les traductions.** Modifier un `.arb` et ne lancer que
+  `build_runner` laisse les anciennes chaînes : il faut `flutter gen-l10n`. `make generate`
+  fait les deux. Sans ça l'erreur accuse le widget au lieu de la traduction.
+- **Ne jamais nommer une table Drift `Lists`.** Drift en dérive une classe de ligne nommée
+  `List`, qui **masque `dart:core`** : tous les `List<T>` de l'app cessent de compiler, avec
+  une erreur qui accuse le mauvais fichier. Utiliser `@DataClassName('Checklist')`.
+- **Sur une colonne synchronisée : jamais `boolean()`, jamais `withLength()`.** Drift les
+  rend en contraintes `CHECK`, et la règle n°1 du protocole les interdit — une valeur
+  inconnue venue d'un serveur plus récent doit s'afficher, pas lever. Un test lit le DDL dans
+  `sqlite_master` et échoue sinon.
 - Le partage `\\wsl.localhost` échoue parfois en `fsync` sous charge. Écrire côté Linux.
 - **Les tests de `internal/store` s'ignorent silencieusement** sans
   `CHOREO_TEST_DATABASE_URL`. Un `ok ... 0.01s` sur ce paquet veut dire « rien n'a tourné ».
