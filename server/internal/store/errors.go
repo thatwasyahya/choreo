@@ -32,7 +32,16 @@ var (
 
 	ErrInviteUnknown = errors.New("store: unknown, expired or already used invite")
 	ErrAlreadyMember = errors.New("store: already a member of this household")
+
+	// ErrBatchTooLarge means the client sent more operations in one round trip
+	// than the server will hold the household lock for.
+	ErrBatchTooLarge = errors.New("store: too many operations in one batch")
 )
+
+// errFieldType is internal: a value that cannot go in its column. It becomes a
+// malformed outcome for that one operation, never an error for the batch — our
+// bug is not the user's eleven other good edits.
+var errFieldType = errors.New("store: wrong type for field")
 
 // uniqueViolation is the PostgreSQL class for a broken unique constraint.
 const uniqueViolation = "23505"
