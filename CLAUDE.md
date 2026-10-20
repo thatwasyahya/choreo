@@ -53,6 +53,14 @@ Source de vérité produit : `docs/CAHIER_DES_CHARGES.md`. Arbitrages et leurs r
   rend en contraintes `CHECK`, et la règle n°1 du protocole les interdit — une valeur
   inconnue venue d'un serveur plus récent doit s'afficher, pas lever. Un test lit le DDL dans
   `sqlite_master` et échoue sinon.
+- **Jamais un flux Drift construit dans `build()`.** Chaque reconstruction annule
+  l'abonnement et relance la requête : une image sans données dans un écran dont tout
+  l'argument est que les données sont déjà là, et un *timer* Drift en suspens qui fait
+  échouer le test — « A Timer is still pending », avec une pile qui accuse Flutter. Garder
+  le flux dans un `State` (`late final Stream<…> _x = …`).
+- **Un test de widget sans `locale` explicite tourne en anglais** (celle de la plateforme),
+  donc toute attente d'une phrase française échoue sur une app qui avait raison. Les
+  enveloppes de test posent `locale ?? const Locale('fr')`.
 - Le partage `\\wsl.localhost` échoue parfois en `fsync` sous charge. Écrire côté Linux.
 - **Les tests de `internal/store` s'ignorent silencieusement** sans
   `CHOREO_TEST_DATABASE_URL`. Un `ok ... 0.01s` sur ce paquet veut dire « rien n'a tourné ».

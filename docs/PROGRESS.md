@@ -1,6 +1,6 @@
 # Où en est le projet
 
-Mis à jour le 15 octobre 2026. À lire en premier pour reprendre à froid.
+Mis à jour le 20 octobre 2026. À lire en premier pour reprendre à froid.
 
 **Phase en cours : 1 — Le noyau.** Plan : [PLAN.md](PLAN.md). Arbitrages :
 [DECISIONS.md](DECISIONS.md). Forme du système : [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -18,7 +18,7 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 | L1.6 long poll | **fait** |
 | L1.7 schéma Drift | **fait** |
 | L1.8 boucle de synchronisation | **faite** — reste la reconstruction par snapshot |
-| L1.9 écrans | **le chemin d'écriture est fait et testé** ; restent les widgets |
+| L1.9 écrans | **fait** — entrée, foyer, liste, membres, plateau « À revoir » |
 | L1.10 recette des sept cas | pas commencée |
 
 **La reconstruction par snapshot est faite**, avec la propriété qui la rend sûre : **rien
@@ -44,6 +44,36 @@ jamais — et le second est pire, puisque personne ne peut s'en apercevoir.
 Un choix d'architecture au passage : **l'interface écoute SQLite** via les flux de Drift. Le
 moteur de synchronisation écrit dans SQLite, l'écran se met à jour tout seul. C'est une pièce
 mobile de moins à justifier, et c'est cohérent avec « le téléphone est la base de données ».
+
+**Les écrans existent, et le critère des dix secondes est tenu par un test**, pas par une
+intention : un appui sur le bouton flottant, un champ déjà au clavier, la touche de validation
+crée la tâche. Le test échoue si un deuxième champ apparaît — c'est tout l'intérêt de l'avoir
+écrit comme ça. Seul le titre est demandé ; échéance, personne et catégorie se posent *après*,
+sur une tâche qui existe déjà.
+
+**Trois états, décidés par la base locale seule** : la façon d'entrer, le foyer à créer ou
+rejoindre, les tâches. Aucun appel réseau ne participe à cette décision, donc un téléphone
+déjà connecté une fois ouvre sur sa liste **en mode avion**. Un test le vérifie en relançant
+l'app contre un serveur injoignable.
+
+Deux conséquences de l'absence d'adresse e-mail (`D-009`) ont leur écran : le **code de
+secours** s'affiche une fois, et l'écran refuse d'être quitté avant que la personne ait dit
+l'avoir noté — le serveur n'en garde qu'un haché et ne peut pas le remontrer. Et **se
+déconnecter n'est pas être révoqué** : les jetons sont oubliés, la réplique reste. Se
+reconnecter sur le même appareil reprend là où on en était, sans snapshot.
+
+Le **plateau « À revoir »** répond aux notices. « Remettre mon texte » rejoue le texte de
+l'auteur comme une écriture neuve contre la révision actuelle — arbitrée comme n'importe
+quelle autre, et pas appliquée par privilège. Un champ que cette version ne sait pas afficher
+voyage quand même dans le rejeu : le serveur, lui, le connaît.
+
+**Deux pannes trouvées en écrivant les tests**, et qui méritent d'être retenues. Un flux Drift
+construit *dans* `build` est annulé et relancé à chaque reconstruction — requête pour rien,
+image sans données dans un écran dont tout l'argument est que les données sont déjà là, et un
+*timer* en suspens qui fait échouer le test suivant. Les écrans tiennent désormais leur flux
+pour leur durée de vie. Et un test de widget sans locale explicite tourne dans celle de la
+plateforme, l'anglais ici : trois fichiers cherchaient des phrases françaises que l'app avait
+raison de ne pas afficher.
 
 **La boucle tient ses trois règles, et chacune a son test.**
 
@@ -303,10 +333,10 @@ journaux  → l'erreur de pilote, qui nomme l'hôte et le compte, reste DANS les
 
 | Vérification | Résultat |
 |---|---|
-| `go test -race ./...` | vert |
+| `make test-server` (`-p 1`, contre un vrai PostgreSQL) | vert — `arch`, `auth`, `config`, `httpapi`, `store` |
 | `golangci-lint run` | **0 issue** |
 | `flutter analyze --fatal-infos --fatal-warnings` | **0 issue** |
-| `flutter test` | **8 tests verts** |
+| `flutter test` | **117 tests verts**, en 15 s |
 | `make dev` sur machine vierge | monte postgres + serveur, sans intervention |
 | `make prod-config` | composition de production valide |
 | `make apk` | **`app-debug.apk` produit** (153 Mo : débogage, toutes ABI) |
@@ -320,19 +350,19 @@ Docker 28.1.1 · JDK 21.0.11 · gitleaks 8.30.1 · golangci-lint 2.13.2
 
 ## Suivant
 
-1. **Lire la section « Les sept cas » de [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md)** — et dire si
+1. **L1.10, la recette des sept cas** : un test par cas, deux clients simulés contre un vrai
+   PostgreSQL. C'est le dernier lot de la Phase 1.
+2. **Lire la section « Les sept cas » de [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md)** — et dire si
    le comportement décrit est celui qu'on veut. Le reste du document est de la plomberie ;
    cette section-là est le produit.
-2. Pousser sur le dépôt distant pour que la CI tourne enfin (L0.7).
-3. Installer l'APK sur un vrai téléphone.
-4. Puis **Phase 1** : le noyau — foyer, membres, tâches, base locale, boîte d'envoi,
-   synchronisation. Rien ne la bloque plus techniquement.
+3. Pousser sur le dépôt distant pour que la CI tourne enfin (L0.7).
+4. Installer l'APK sur un vrai téléphone, et faire l'essai décisif à deux appareils.
 
 ## En attente du product owner
 
 - **Dépôt distant.** Pas encore créé, donc rien n'est poussé et la CI n'a jamais tourné.
   Marche à suivre exacte dans [SETUP_COMPTES.md](SETUP_COMPTES.md).
-- **Adresse de commit.** Les 12 commits portent l'adresse personnelle. Le dépôt sera
+- **Adresse de commit.** Les 61 commits portent l'adresse personnelle. Le dépôt sera
   public : la réécriture est gratuite tant que rien n'est publié, coûteuse après.
 - **Téléphone Android.** `adb devices` est vide. Non bloquant : la cible `linux` de Flutter
   suffit pour les essais, et la CI produit un APK en artefact.
