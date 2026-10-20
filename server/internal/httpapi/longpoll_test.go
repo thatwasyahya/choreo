@@ -168,7 +168,11 @@ func TestParkedCallsHoldNoDatabaseConnection(t *testing.T) {
 
 	_, caught := a.do(http.MethodPost, "/v1/households/"+id+"/sync", token, syncBody())
 
-	const parked = 6
+	// A hundred, which is the figure the phase's exit criterion names: four
+	// households of four with the app open, and then some. The pool is a
+	// handful of connections, so if a parked call held one, the hundredth would
+	// be waiting on the first.
+	const parked = 100
 
 	var wg sync.WaitGroup
 	for range parked {
@@ -176,14 +180,14 @@ func TestParkedCallsHoldNoDatabaseConnection(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			request := longPoll(1500)
+			request := longPoll(4000)
 			request["cursor_seq"] = caught["cursor_seq"]
 			a.do(http.MethodPost, "/v1/households/"+id+"/sync", token, request)
 		}()
 	}
 
 	// Sampled while they are all still parked.
-	time.Sleep(600 * time.Millisecond)
+	time.Sleep(1200 * time.Millisecond)
 
 	var inTransaction int
 	execScalar(t, &inTransaction,
@@ -191,11 +195,26 @@ func TestParkedCallsHoldNoDatabaseConnection(t *testing.T) {
 		  WHERE datname = current_database()
 		    AND state = 'idle in transaction'`)
 
+	// And the claim that actually matters to a person: the pool still has room.
+	// Counting backends would only describe the plumbing; an ordinary call
+	// answering straight away is the thing a parked call must not have taken
+	// away.
+	started := time.Now()
+	status, _ := a.do(http.MethodPost, "/v1/households/"+id+"/sync", token, syncBody())
+	ordinary := time.Since(started)
+
 	wg.Wait()
 
 	if inTransaction != 0 {
 		t.Errorf("%d connections sat idle in transaction while %d calls were parked — "+
 			"a parked call must cost a goroutine, not a connection",
 			inTransaction, parked)
+	}
+	if status != http.StatusOK {
+		t.Errorf("an ordinary call answered %d while %d were parked", status, parked)
+	}
+	if ordinary > 2*time.Second {
+		t.Errorf("an ordinary call took %s while %d were parked: the pool is being held",
+			ordinary, parked)
 	}
 }
