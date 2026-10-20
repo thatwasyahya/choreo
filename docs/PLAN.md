@@ -317,19 +317,24 @@ L1.7 ──► L1.8 ────────────────────
 
 ### Critères de sortie de la Phase 1
 
-- [ ] **L'essai décisif** : tâche créée en mode avion sur un client, retrouvée sur un autre
-      après reconnexion
-- [ ] Les **sept cas** du protocole passent en automatique
-- [ ] Un test par ligne de la table des règles de résolution
-- [ ] L'invariant « une seule occurrence ouverte par série » tient quand deux clients
-      hors-ligne ouvrent la suivante
-- [ ] Isolation entre foyers prouvée par un test
-- [ ] Compatibilité N-2 : un client simulé N-1 applique une ligne contenant un champ qu'il ne
-      connaît pas
-- [ ] Un curseur expiré se rebâtit sans perdre la boîte d'envoi
-- [ ] Cent long polls garés ne consomment aucune connexion du pool
-- [ ] Aucun secret dans les journaux
-- [ ] `make test`, `make lint` verts ; analyse Dart et `golangci-lint` à zéro
+- [~] **L'essai décisif** : tâche créée en mode avion sur un client, retrouvée sur un autre
+      après reconnexion — **tenu en automatique** par deux clients simulés
+      (`seven_cases_test.go`, cas 1 et 5) ; **l'essai à la main attend un téléphone**
+- [x] Les **sept cas** du protocole passent en automatique — 15 tests, deux clients simulés
+      contre un vrai PostgreSQL
+- [x] Un test par ligne de la table des règles de résolution
+- [x] L'invariant « une seule occurrence ouverte par série » tient quand deux clients
+      hors-ligne ouvrent la suivante — cas 3, et les deux validations sont conservées
+- [x] Isolation entre foyers prouvée par un test
+- [x] Compatibilité N-2 : un client simulé N-1 applique une ligne contenant un champ qu'il ne
+      connaît pas — côté Drift, le champ inconnu atterrit dans `ext` au lieu de lever
+- [x] Un curseur expiré se rebâtit sans perdre la boîte d'envoi — et le `sync` qui l'a
+      découvert a quand même appliqué ce qui venait d'être poussé
+- [x] Cent long polls garés ne consomment aucune connexion du pool — et un appel ordinaire
+      est servi pendant qu'ils sont garés
+- [x] Aucun secret dans les journaux — mot de passe, jetons, code de secours, code
+      d'invitation, vérifiés au niveau `debug`
+- [x] `make test`, `make lint` verts ; analyse Dart et `golangci-lint` à zéro
 
 ---
 

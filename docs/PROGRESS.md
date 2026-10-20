@@ -19,7 +19,7 @@ Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 | L1.7 schéma Drift | **fait** |
 | L1.8 boucle de synchronisation | **faite** — reste la reconstruction par snapshot |
 | L1.9 écrans | **fait** — entrée, foyer, liste, membres, plateau « À revoir » |
-| L1.10 recette des sept cas | pas commencée |
+| L1.10 recette des sept cas | **faite en automatique** — 15 tests, deux clients simulés ; l'essai à la main attend un téléphone |
 
 **La reconstruction par snapshot est faite**, avec la propriété qui la rend sûre : **rien
 n'est appliqué avant d'avoir vu la ligne `end`**. Le snapshot est un monde clos — il supprime
@@ -66,6 +66,29 @@ Le **plateau « À revoir »** répond aux notices. « Remettre mon texte » rej
 l'auteur comme une écriture neuve contre la révision actuelle — arbitrée comme n'importe
 quelle autre, et pas appliquée par privilège. Un champ que cette version ne sait pas afficher
 voyage quand même dans le rejeu : le serveur, lui, le connaît.
+
+**Les sept cas passent sans intervention**, pilotés par **deux clients simulés** contre un
+vrai PostgreSQL. Un client seul ne peut être en désaccord avec personne, et un serveur
+simulé ne prouverait que son propre accord avec lui-même : la recette construit donc un
+client minimal qui fait exactement ce que le vrai a le droit de faire — mettre une intention
+en file hors-ligne, la pousser, et remplacer une ligne locale quand la révision qui descend
+est supérieure. Aucune fusion nulle part.
+
+Quinze tests, nommés d'après la promesse qu'ils tiennent. Et **un vrai défaut trouvé**, qui
+est précisément ce à quoi sert une recette à deux clients : résoudre une notice mettait la
+ligne à jour **sans faire bouger sa `rev`**, donc la réponse ne voyageait pas. La carte se
+fermait sur l'appareil qui avait répondu et restait ouverte sur tous les autres — l'inverse
+de ce que promet le cas 7, et invisible pour n'importe quel test à un seul client.
+
+**Cent long polls garés ne tiennent aucune connexion**, et un appel ordinaire est servi
+pendant ce temps : compter les connexions décrit la plomberie, mais un appel qui répond quand
+même est ce qu'un *long poll* garé ne doit pas avoir confisqué.
+
+**Aucun secret dans les journaux**, vérifié au niveau `debug` — mot de passe, jetons d'accès
+et de rafraîchissement, code de secours, code d'invitation. Un secret qui ne fuit qu'en
+`debug` fuit quand même, et les journaux sont l'endroit où les secrets vivent le plus
+longtemps : expédiés hors de la machine, gardés des mois, lisibles par qui a accès au
+collecteur plutôt qu'à la base.
 
 **Deux pannes trouvées en écrivant les tests**, et qui méritent d'être retenues. Un flux Drift
 construit *dans* `build` est annulé et relancé à chaque reconstruction — requête pour rien,
@@ -334,6 +357,9 @@ journaux  → l'erreur de pilote, qui nomme l'hôte et le compte, reste DANS les
 | Vérification | Résultat |
 |---|---|
 | `make test-server` (`-p 1`, contre un vrai PostgreSQL) | vert — `arch`, `auth`, `config`, `httpapi`, `store` |
+| les **sept cas**, deux clients simulés | **15 tests verts**, sans intervention |
+| cent long polls garés | **0 connexion** tenue, appel ordinaire servi pendant |
+| secrets dans les journaux | **aucun**, vérifié au niveau `debug` |
 | `golangci-lint run` | **0 issue** |
 | `flutter analyze --fatal-infos --fatal-warnings` | **0 issue** |
 | `flutter test` | **117 tests verts**, en 15 s |
@@ -350,13 +376,16 @@ Docker 28.1.1 · JDK 21.0.11 · gitleaks 8.30.1 · golangci-lint 2.13.2
 
 ## Suivant
 
-1. **L1.10, la recette des sept cas** : un test par cas, deux clients simulés contre un vrai
-   PostgreSQL. C'est le dernier lot de la Phase 1.
-2. **Lire la section « Les sept cas » de [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md)** — et dire si
+**La Phase 1 est finie côté code.** Tous ses critères de sortie sont tenus sauf un, et celui-là
+demande du matériel : l'essai décisif à la main sur deux appareils.
+
+1. **Lire la section « Les sept cas » de [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md)** — et dire si
    le comportement décrit est celui qu'on veut. Le reste du document est de la plomberie ;
-   cette section-là est le produit.
-3. Pousser sur le dépôt distant pour que la CI tourne enfin (L0.7).
-4. Installer l'APK sur un vrai téléphone, et faire l'essai décisif à deux appareils.
+   cette section-là est le produit, et c'est maintenant qu'un désaccord coûte le moins cher :
+   les quinze tests disent exactement ce qui est promis.
+2. Pousser sur le dépôt distant pour que la CI tourne enfin (L0.7).
+3. Installer l'APK sur un vrai téléphone, et faire l'essai décisif à deux appareils.
+4. Puis **Phase 2** : séries et récurrence, listes et `order_key`, déploiement sur le VPS.
 
 ## En attente du product owner
 
