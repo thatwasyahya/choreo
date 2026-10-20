@@ -415,7 +415,20 @@ CREATE TABLE sync_cursors (
 );
 
 CREATE TABLE device_identity (id INTEGER PRIMARY KEY CHECK (id = 1),
-  device_id TEXT, access_token TEXT, refresh_token TEXT);
+  device_id TEXT, account_id TEXT, login TEXT,
+  access_token TEXT, refresh_token TEXT,
+  access_until INTEGER);                         -- pour renouveler AVANT un 401
+
+-- À quels foyers cette installation appartient, et qui elle y est. Local, parce
+-- que chaque écran en a besoin avant tout appel réseau : la liste des tâches
+-- doit savoir de quel foyer elle parle et quel membre coche, dans une cave.
+CREATE TABLE memberships (
+  household_id TEXT PRIMARY KEY,
+  member_id    TEXT NOT NULL,                    -- qui on est DANS ce foyer
+  role         TEXT NOT NULL DEFAULT 'adult',
+  name         TEXT,
+  current      INTEGER NOT NULL DEFAULT 0        -- le foyer à l'écran, un seul
+);
 
 -- Miroir local des notices, pour que le plateau « À revoir » s'affiche hors-ligne.
 CREATE TABLE notices (/* miroir */, seen INTEGER NOT NULL DEFAULT 0);

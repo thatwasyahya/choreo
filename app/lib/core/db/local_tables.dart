@@ -85,8 +85,19 @@ class DeviceIdentity extends Table {
   /// claim another device's id would corrupt that device's replica.
   TextColumn get deviceId => text().nullable()();
 
+  TextColumn get accountId => text().nullable()();
+
+  /// The login, kept so the sign-in screen can offer it back. Never the
+  /// password: the only thing stored about it is that it worked once.
+  TextColumn get login => text().nullable()();
+
   TextColumn get accessToken => text().nullable()();
   TextColumn get refreshToken => text().nullable()();
+
+  /// Wall-clock milliseconds, and used only to decide whether to renew BEFORE
+  /// a call rather than after a 401. The 401 remains the real authority: a
+  /// phone whose clock is wrong must still be able to sign in.
+  IntColumn get accessUntil => integer().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -114,4 +125,35 @@ class Quarantine extends Table {
 
   TextColumn get error => text()();
   IntColumn get atElapsed => integer()();
+}
+
+/// Which households this installation belongs to, and who it is in each one.
+///
+/// Stored locally because every screen needs it before any network call: the
+/// task list has to know whose household it is showing and which member is
+/// ticking, in a cellar, at first launch after a restart. The server knows the
+/// same thing, but asking it would make the app wait for the network to render
+/// — which is the one thing it must never do.
+/// Named explicitly because drift would call the row class `Membership`, which
+/// is already the name of the thing the server sends. Two `Membership` types in
+/// one import would have to be aliased at every call site.
+@DataClassName('HouseholdMembership')
+class Memberships extends Table {
+  TextColumn get householdId => text()();
+
+  /// Who this account is INSIDE that household. Not the account id: one
+  /// account is one member per household, and the member id is what every
+  /// completion and every notice is addressed to.
+  TextColumn get memberId => text()();
+
+  TextColumn get role => text().withDefault(const Constant('adult'))();
+  TextColumn get name => text().nullable()();
+
+  /// The household on screen. One at a time, and remembered across restarts:
+  /// a carer looking after a parent's household switches between them, and
+  /// landing in the wrong one is how somebody ticks the wrong chore.
+  IntColumn get current => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {householdId};
 }

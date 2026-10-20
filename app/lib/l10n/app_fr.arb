@@ -6,6 +6,77 @@
     "description": "Le nom du produit. Ne se traduit pas."
   },
 
+  "welcomeTagline": "Le foyer, organisé ensemble.",
+  "@welcomeTagline": {
+    "description": "Sous le nom, au premier lancement. Une phrase, pas un argumentaire."
+  },
+
+  "createAccount": "Créer un compte",
+  "haveAccount": "J'ai déjà un compte",
+  "signIn": "Se connecter",
+  "signOut": "Se déconnecter",
+  "continueLabel": "Continuer",
+
+  "loginLabel": "Identifiant",
+  "loginHint": "3 à 32 caractères : lettres, chiffres, point, tiret, tiret bas.",
+  "@loginHint": {
+    "description": "Les règles du serveur, dites d'avance. Pas une adresse e-mail : il n'y en a aucune dans ce produit (D-009)."
+  },
+
+  "passwordLabel": "Mot de passe",
+  "passwordHint": "Dix caractères au moins. Rien d'autre n'est exigé.",
+  "@passwordHint": {
+    "description": "Aucune règle de composition : exiger une majuscule et un chiffre produit « Password1! » et pas un bit d'entropie en plus."
+  },
+
+  "recoveryTitle": "Le code de secours",
+  "recoveryExplain": "Ce code ne sera plus jamais affiché. Il n'y a pas d'adresse e-mail dans Choreo : c'est le seul moyen de retrouver ce compte. À noter maintenant, ailleurs que sur ce téléphone.",
+  "@recoveryExplain": {
+    "description": "Le serveur n'en garde qu'un haché et ne peut pas le remontrer. L'écran doit obliger à le noter avant de continuer."
+  },
+
+  "recoveryNoted": "J'ai noté ce code",
+  "copyCode": "Copier",
+  "codeCopied": "Copié.",
+
+  "householdTitle": "Le foyer",
+  "createHousehold": "Créer un foyer",
+  "joinHousehold": "Rejoindre un foyer",
+  "householdNameLabel": "Nom du foyer",
+  "displayNameLabel": "Mon prénom dans le foyer",
+  "inviteCodeLabel": "Code d'invitation",
+
+  "inviteMember": "Inviter",
+  "inviteCodeTitle": "Le code à transmettre",
+  "inviteCodeExplain": "À lire à voix haute ou à recopier. Il expire, et il ne sert qu'une fois.",
+
+  "roleAdmin": "Admin",
+  "roleAdult": "Adulte",
+  "roleChild": "Enfant",
+  "roleGuest": "Invité",
+
+  "errOffline": "Le serveur est injoignable. Rien n'est perdu : il suffit de réessayer plus tard.",
+  "@errOffline": {
+    "description": "Être hors ligne n'est pas une erreur dans ce produit. Le ton de cette phrase le dit."
+  },
+
+  "errLoginTaken": "Cet identifiant est déjà pris.",
+  "errWeakPassword": "Il faut un mot de passe plus long.",
+  "errInvalidLogin": "Cet identifiant ne convient pas.",
+  "errBadCredentials": "Identifiant ou mot de passe incorrect.",
+  "@errBadCredentials": {
+    "description": "Jamais lequel des deux : le dire permettrait de savoir quels identifiants existent."
+  },
+
+  "errInviteUnknown": "Ce code ne marche pas, ou plus.",
+  "@errInviteUnknown": {
+    "description": "Inconnu, déjà utilisé ou expiré, et jamais lequel."
+  },
+
+  "errAlreadyMember": "Déjà membre de ce foyer.",
+  "errRateLimited": "Trop d'essais. Réessayer dans quelques minutes.",
+  "errServer": "Quelque chose n'a pas marché côté serveur.",
+
   "membersTitle": "Les membres",
   "@membersTitle": {
     "description": "La liste des membres du foyer. Aussi l'étiquette du bouton qui y mène, depuis la liste des tâches."

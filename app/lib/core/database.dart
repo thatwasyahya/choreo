@@ -35,6 +35,7 @@ part 'database.g.dart';
     Outbox,
     SyncCursors,
     DeviceIdentity,
+    Memberships,
     Quarantine,
   ],
 )
@@ -43,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'choreo'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -55,6 +56,15 @@ class AppDatabase extends _$AppDatabase {
         // costs nobody anything.
         await m.database.customStatement('DROP TABLE IF EXISTS observations');
         await m.createAll();
+      }
+      if (from < 3) {
+        // Who this installation is, per household. Added rather than inferred:
+        // the task list needs it before any network call, and a fresh install
+        // simply has no row yet.
+        await m.createTable(memberships);
+        await m.addColumn(deviceIdentity, deviceIdentity.accountId);
+        await m.addColumn(deviceIdentity, deviceIdentity.login);
+        await m.addColumn(deviceIdentity, deviceIdentity.accessUntil);
       }
     },
   );

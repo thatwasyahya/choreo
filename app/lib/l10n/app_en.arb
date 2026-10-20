@@ -3,6 +3,53 @@
 
   "appTitle": "Choreo",
 
+  "welcomeTagline": "A household, organised together.",
+
+  "createAccount": "Create an account",
+  "haveAccount": "I already have an account",
+  "signIn": "Sign in",
+  "signOut": "Sign out",
+  "continueLabel": "Continue",
+
+  "loginLabel": "Login",
+  "loginHint": "3 to 32 characters: letters, digits, dot, dash, underscore.",
+
+  "passwordLabel": "Password",
+  "passwordHint": "Ten characters at least. Nothing else is required.",
+
+  "recoveryTitle": "The recovery code",
+  "recoveryExplain": "This code will never be shown again. There is no e-mail address in Choreo: it is the only way back to this account. Write it down now, somewhere other than this phone.",
+
+  "recoveryNoted": "I have written this down",
+  "copyCode": "Copy",
+  "codeCopied": "Copied.",
+
+  "householdTitle": "The household",
+  "createHousehold": "Create a household",
+  "joinHousehold": "Join a household",
+  "householdNameLabel": "Household name",
+  "displayNameLabel": "My name in the household",
+  "inviteCodeLabel": "Invite code",
+
+  "inviteMember": "Invite",
+  "inviteCodeTitle": "The code to pass on",
+  "inviteCodeExplain": "Read it out or copy it down. It expires, and it works once.",
+
+  "roleAdmin": "Admin",
+  "roleAdult": "Adult",
+  "roleChild": "Child",
+  "roleGuest": "Guest",
+
+  "errOffline": "The server cannot be reached. Nothing is lost: try again later.",
+  "errLoginTaken": "That login is taken.",
+  "errWeakPassword": "The password needs to be longer.",
+  "errInvalidLogin": "That login will not do.",
+  "errBadCredentials": "Wrong login or password.",
+  "errInviteUnknown": "That code does not work, or no longer does.",
+  "errAlreadyMember": "Already a member of this household.",
+  "errRateLimited": "Too many attempts. Try again in a few minutes.",
+  "errServer": "Something went wrong on the server.",
+
   "membersTitle": "Members",
 
   "tasksTitle": "To do",

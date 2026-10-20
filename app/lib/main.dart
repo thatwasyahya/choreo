@@ -1,18 +1,38 @@
 import 'package:choreo/core/api_client.dart';
+import 'package:choreo/core/auth_api.dart';
 import 'package:choreo/core/database.dart';
-import 'package:choreo/features/check/check_screen.dart';
+import 'package:choreo/core/session.dart';
+import 'package:choreo/features/shell/app_shell.dart';
 import 'package:choreo/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(ChoreoApp(database: AppDatabase(), api: ApiClient()));
+  final db = AppDatabase();
+  final auth = AuthApi();
+
+  runApp(
+    ChoreoApp(
+      database: db,
+      auth: auth,
+      api: ApiClient(),
+      sessions: SessionRepository(db: db, auth: auth),
+    ),
+  );
 }
 
 class ChoreoApp extends StatelessWidget {
-  const ChoreoApp({required this.database, required this.api, super.key});
+  const ChoreoApp({
+    required this.database,
+    required this.auth,
+    required this.api,
+    required this.sessions,
+    super.key,
+  });
 
   final AppDatabase database;
+  final AuthApi auth;
   final ApiClient api;
+  final SessionRepository sessions;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +43,12 @@ class ChoreoApp extends StatelessWidget {
       supportedLocales: AppLocalizations.supportedLocales,
       theme: ThemeData(colorSchemeSeed: _seed),
       darkTheme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.dark),
-      home: CheckScreen(database: database, api: api),
+      home: AppShell(
+        db: database,
+        sessions: sessions,
+        auth: auth,
+        api: api,
+      ),
     );
   }
 }
