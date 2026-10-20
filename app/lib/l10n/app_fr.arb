@@ -6,46 +6,113 @@
     "description": "Le nom du produit. Ne se traduit pas."
   },
 
-  "checkTitle": "Vérification",
-  "@checkTitle": {
-    "description": "Titre de l'écran de vérification technique, avant les vrais écrans."
+  "membersTitle": "Les membres",
+  "@membersTitle": {
+    "description": "La liste des membres du foyer. Aussi l'étiquette du bouton qui y mène, depuis la liste des tâches."
   },
 
-  "serverSection": "Serveur",
-  "@serverSection": {
-    "description": "En-tête de la section qui rend compte du serveur."
+  "tasksTitle": "À faire",
+  "@tasksTitle": {
+    "description": "Titre de l'écran principal."
   },
 
-  "localSection": "Base locale",
-  "@localSection": {
-    "description": "En-tête de la section qui rend compte de la base du téléphone."
+  "newTaskHint": "Quoi faire ?",
+  "@newTaskHint": {
+    "description": "Invite du champ de création. Une question courte, pas une étiquette de formulaire : c'est le seul champ obligatoire."
   },
 
-  "serverChecking": "Vérification…",
-  "@serverChecking": {
-    "description": "Affiché pendant l'appel au serveur."
+  "addTask": "Ajouter",
+  "@addTask": {
+    "description": "Bouton de création d'une tâche."
   },
 
-  "serverReachable": "Joignable, version {version}",
-  "@serverReachable": {
-    "description": "Le serveur a répondu.",
+  "newTask": "Nouvelle tâche",
+  "@newTask": {
+    "description": "Étiquette d'accessibilité du bouton flottant."
+  },
+
+  "emptyTasks": "Rien à faire pour l'instant.",
+  "@emptyTasks": {
+    "description": "État vide. Jamais de reproche ni d'injonction : le principe 6 interdit la culpabilisation."
+  },
+
+  "doneBy": "Fait par {names}",
+  "@doneBy": {
+    "description": "Qui a coché une tâche. Une attribution, jamais un classement.",
     "placeholders": {
-      "version": { "type": "String" }
+      "names": { "type": "String" }
     }
   },
 
-  "serverUnreachable": "Injoignable",
-  "@serverUnreachable": {
-    "description": "Le serveur n'a pas répondu. Ce n'est pas une erreur : l'app fonctionne sans lui."
+  "catchUp": "À rattraper",
+  "@catchUp": {
+    "description": "Une échéance dépassée. On ne dit JAMAIS « en retard » : le principe 6 l'interdit explicitement."
   },
 
-  "tasksStored": "{count, plural, =0{Aucune tâche} =1{1 tâche} other{{count} tâches}}",
-  "@tasksStored": {
-    "description": "Nombre de tâches vivantes dans la base du téléphone.",
+  "renameTask": "Renommer",
+  "deleteTask": "Supprimer",
+  "undo": "Annuler",
+
+  "reviewTray": "À revoir",
+  "@reviewTray": {
+    "description": "Le plateau des notices."
+  },
+
+  "reviewPending": "{count, plural, =1{1 chose à revoir} other{{count} choses à revoir}}",
+  "@reviewPending": {
     "placeholders": {
       "count": { "type": "int" }
     }
   },
+
+  "reviewEmpty": "Rien à revoir.",
+  "@reviewEmpty": {
+    "description": "Plateau vide. C'est l'état normal : une notice est l'exception, pas le quotidien."
+  },
+
+  "noticeFieldSuperseded": "Quelqu'un a écrit autre chose au même moment.",
+  "@noticeFieldSuperseded": {
+    "description": "Code field_superseded. Un constat, jamais un reproche : personne n'a eu tort, le premier écrit a simplement été gardé."
+  },
+
+  "noticeTargetGone": "Cette chose n'existait plus à l'arrivée au serveur.",
+  "@noticeTargetGone": {
+    "description": "Code target_gone. Le texte est conservé dans la carte, c'est tout l'intérêt de la montrer."
+  },
+
+  "noticeEditVsDelete": "Supprimée par quelqu'un d'autre pendant la modification.",
+  "@noticeEditVsDelete": {
+    "description": "Code edit_vs_delete. La suppression tient l'affichage, la modification est gardée."
+  },
+
+  "noticeStaleDelete": "Modifiée entre-temps : la suppression n'a pas eu lieu.",
+  "@noticeStaleDelete": {
+    "description": "Code stale_delete. Une suppression détruit, donc elle demande au lieu d'imposer."
+  },
+
+  "noticeSuccessorInUse": "L'occurrence suivante a déjà avancé.",
+  "@noticeSuccessorInUse": {
+    "description": "Code successor_in_use. Revenir en arrière effacerait du travail déjà fait."
+  },
+
+  "noticeUnknown": "Quelque chose n'a pas pu se faire comme demandé.",
+  "@noticeUnknown": {
+    "description": "Repli pour un code que cette version de l'app ne connaît pas. Un serveur plus récent peut en envoyer un : la carte s'affiche quand même."
+  },
+
+  "noticeMine": "Ce qui avait été écrit",
+  "@noticeMine": {
+    "description": "En-tête du texte de l'auteur, conservé mot pour mot. C'est ce que « Remettre mon texte » rejoue."
+  },
+
+  "noticeTheirs": "Ce qui a été gardé",
+  "@noticeTheirs": {
+    "description": "En-tête de la valeur qui a tenu."
+  },
+
+  "noticeKeepMine": "Remettre mon texte",
+  "noticeKeepTheirs": "Garder ça",
+  "noticeDismiss": "Fermer",
 
   "pendingToSend": "{count, plural, =0{Rien à envoyer} =1{1 geste à envoyer} other{{count} gestes à envoyer}}",
   "@pendingToSend": {
@@ -63,13 +130,35 @@
     }
   },
 
-  "retry": "Réessayer",
-  "@retry": {
-    "description": "Relance la vérification."
+  "checkTitle": "Vérification",
+  "@checkTitle": {
+    "description": "Titre de l'écran de diagnostic."
   },
 
-  "offlineNote": "Cet écran fonctionne sans réseau : tout est lu dans la base du téléphone.",
-  "@offlineNote": {
-    "description": "Rappelle que l'app est hors-ligne d'abord, pas hors-ligne tolérée."
-  }
+  "serverSection": "Serveur",
+  "localSection": "Base locale",
+  "serverChecking": "Vérification…",
+
+  "serverReachable": "Joignable, version {version}",
+  "@serverReachable": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+
+  "serverUnreachable": "Injoignable",
+  "@serverUnreachable": {
+    "description": "Le serveur n'a pas répondu. Ce n'est pas une erreur : l'app fonctionne sans lui."
+  },
+
+  "tasksStored": "{count, plural, =0{Aucune tâche} =1{1 tâche} other{{count} tâches}}",
+  "@tasksStored": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "retry": "Réessayer",
+
+  "offlineNote": "Cet écran fonctionne sans réseau : tout est lu dans la base du téléphone."
 }

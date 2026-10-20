@@ -2,20 +2,55 @@
   "@@locale": "en",
 
   "appTitle": "Choreo",
+
+  "membersTitle": "Members",
+
+  "tasksTitle": "To do",
+  "newTaskHint": "What needs doing?",
+  "addTask": "Add",
+  "newTask": "New task",
+  "emptyTasks": "Nothing to do right now.",
+
+  "doneBy": "Done by {names}",
+
+  "catchUp": "To catch up",
+
+  "renameTask": "Rename",
+  "deleteTask": "Delete",
+  "undo": "Undo",
+
+  "reviewTray": "To review",
+  "reviewPending": "{count, plural, =1{1 thing to review} other{{count} things to review}}",
+
+  "reviewEmpty": "Nothing to review.",
+
+  "noticeFieldSuperseded": "Somebody wrote something else at the same moment.",
+  "noticeTargetGone": "This thing no longer existed when it reached the server.",
+  "noticeEditVsDelete": "Deleted by somebody else while it was being edited.",
+  "noticeStaleDelete": "Edited in the meantime: the deletion did not happen.",
+  "noticeSuccessorInUse": "The next occurrence has already moved on.",
+  "noticeUnknown": "Something could not be done the way it was asked.",
+
+  "noticeMine": "What had been written",
+  "noticeTheirs": "What was kept",
+
+  "noticeKeepMine": "Put my text back",
+  "noticeKeepTheirs": "Keep this",
+  "noticeDismiss": "Close",
+
+  "pendingToSend": "{count, plural, =0{Nothing to send} =1{1 gesture to send} other{{count} gestures to send}}",
+
+  "quarantinedRows": "{count, plural, =1{1 row set aside} other{{count} rows set aside}}",
+
   "checkTitle": "Check",
 
   "serverSection": "Server",
   "localSection": "Local database",
-
   "serverChecking": "Checking…",
   "serverReachable": "Reachable, version {version}",
   "serverUnreachable": "Unreachable",
 
   "tasksStored": "{count, plural, =0{No tasks} =1{1 task} other{{count} tasks}}",
-
-  "pendingToSend": "{count, plural, =0{Nothing to send} =1{1 gesture to send} other{{count} gestures to send}}",
-
-  "quarantinedRows": "{count, plural, =1{1 row set aside} other{{count} rows set aside}}",
 
   "retry": "Try again",
 
