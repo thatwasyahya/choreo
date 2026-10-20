@@ -93,8 +93,13 @@ func (s *Store) opResolveNotice(
 	// for_member is part of the WHERE, not a check afterwards: a decision is
 	// addressed to one person, and two voices answering it is a race. Somebody
 	// else's notice is simply not there to be resolved.
+	// rev moves too, and it has to: the row's revision is its position in the
+	// household's log, so a card answered on the tablet only reaches the phone
+	// if answering it puts the row back in the stream. Without this line the
+	// card closes on one device and stays open on every other one, forever —
+	// which is the promise case 7 of the protocol makes.
 	const resolve = `UPDATE notices
-	                    SET resolved_rev = $4, resolved_choice = $5
+	                    SET resolved_rev = $4, resolved_choice = $5, rev = $4
 	                  WHERE household_id = $1 AND id = $2
 	                    AND for_member = $3
 	                    AND resolved_rev IS NULL`
