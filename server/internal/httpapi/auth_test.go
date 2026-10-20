@@ -31,6 +31,14 @@ type api struct {
 func newTestAPI(t *testing.T) *api {
 	t.Helper()
 
+	return newTestAPIWriting(t, io.Discard)
+}
+
+// newTestAPIWriting is newTestAPI with somewhere to read the logs, for the one
+// test that is about what the server says rather than what it answers.
+func newTestAPIWriting(t *testing.T, logs io.Writer) *api {
+	t.Helper()
+
 	dsn := os.Getenv("CHOREO_TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("CHOREO_TEST_DATABASE_URL is unset — run `make test-db`, then `make test-server`")
@@ -51,7 +59,11 @@ func newTestAPI(t *testing.T) *api {
 	truncate(t, dsn)
 
 	handler := httpapi.New(httpapi.Deps{
-		Logger:    slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		Logger: slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{
+			// Everything, including what a production deployment would not
+			// print: a secret that only leaks at debug level still leaks.
+			Level: slog.LevelDebug,
+		})),
 		Metrics:   obs.NewMetrics(),
 		DB:        db,
 		Version:   "test",
