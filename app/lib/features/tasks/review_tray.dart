@@ -95,13 +95,18 @@ class _ReviewTrayButtonState extends State<ReviewTrayButton> {
 
         return IconButton(
           tooltip: l10n.reviewPending(waiting),
-          onPressed: () => unawaited(
-            Navigator.of(context).push(
+          // Awaited inside an async closure rather than wrapped in
+          // `unawaited`: a newer SDK annotates Navigator.push as not needing an
+          // await and flags the wrapper, while this one flags the bare call.
+          // Awaiting satisfies both, and the route's result is of no interest
+          // either way.
+          onPressed: () async {
+            await Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => ReviewTray(notices: widget.notices),
               ),
-            ),
-          ),
+            );
+          },
           icon: Badge.count(
             count: waiting,
             child: const Icon(Icons.inbox_outlined),
