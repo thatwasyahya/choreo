@@ -102,6 +102,13 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          # PINNED, and not "whatever stable is today". The analyser ships with
+          # the SDK, and `--fatal-infos` makes every lint it adds a failure: an
+          # unpinned channel turns somebody else's release into our red build,
+          # on a commit that changed nothing. It cost this project its first CI
+          # run. Moving this is a deliberate task with its own commit, and the
+          # development machine moves with it.
+          flutter-version: 3.38.9
           channel: stable
           cache: true
 
