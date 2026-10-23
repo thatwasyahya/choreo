@@ -7,13 +7,15 @@
 
     <!-- Cleartext HTTP, in the DEBUG build and nowhere else.
          Android refuses it by default from targetSdk 28 onwards, for every
-         host including localhost — so without this line a debug build cannot
+         host including localhost. Without this line a debug build cannot
          reach `make dev` at all, by any route: an adb reverse tunnel to
-         localhost:8080, a server on the local network, or an address passed in
-         with --dart-define. The failure surfaces as "the server cannot be
-         reached", which sends you looking at the network instead of here.
-         The release build keeps the secure default: the product talks HTTPS to
-         a real server, and only development needs plaintext.
+         localhost:8080, a server on the local network, or whatever address
+         CHOREO_SERVER_URL was given at build time. The failure surfaces as
+         "the server cannot be reached", which sends you looking at the
+         network instead of here.
+         The release build keeps the secure default, which is the right one:
+         the product talks HTTPS to a real server, and only development needs
+         plaintext.
     -->
     <application android:usesCleartextTraffic="true"/>
 </manifest>
