@@ -322,7 +322,7 @@ marche sans Docker — d'où `make test-db` puis `make test-server`.
 | L0.4 PostgreSQL et migrations | **fait** |
 | L0.5 squelette Flutter | **fait** |
 | L0.6 Compose et Makefile | **fait** |
-| L0.7 intégration continue | **écrite**, pas encore exercée — il manque le dépôt distant |
+| L0.7 intégration continue | **faite**, et exercée : trois postes sur le dépôt public |
 | L0.8 observabilité | **fait** |
 | L0.9 protocole de synchronisation | **écrit**, 1 499 lignes, **ses 9 questions tranchées** (`D-020`) |
 | L0.10 mémoire du projet | **fait** |
@@ -366,7 +366,7 @@ journaux  → l'erreur de pilote, qui nomme l'hôte et le compte, reste DANS les
 | `make dev` sur machine vierge | monte postgres + serveur, sans intervention |
 | `make prod-config` | composition de production valide |
 | `make apk` | **`app-debug.apk` produit** (153 Mo : débogage, toutes ABI) |
-| `.github/workflows/ci.yml` | se parse — 3 postes, mais **jamais exécutée** faute de dépôt distant |
+| `.github/workflows/ci.yml` | **tourne** sur GitHub — secrets, serveur, app, APK en artefact |
 | crochet `pre-commit` | refuse un commit portant un jeton |
 
 ## Outils installés
@@ -389,13 +389,26 @@ demande du matériel : l'essai décisif à la main sur deux appareils.
 
 ## En attente du product owner
 
-- **Dépôt distant.** Pas encore créé, donc rien n'est poussé et la CI n'a jamais tourné.
-  Marche à suivre exacte dans [SETUP_COMPTES.md](SETUP_COMPTES.md).
-- **Adresse de commit.** Les 61 commits portent l'adresse personnelle. Le dépôt sera
-  public : la réécriture est gratuite tant que rien n'est publié, coûteuse après.
-- **Téléphone Android.** `adb devices` est vide. Non bloquant : la cible `linux` de Flutter
-  suffit pour les essais, et la CI produit un APK en artefact.
-- **Validation de `SYNC_PROTOCOL.md`** quand il arrive.
+- **Téléphone Android.** `adb devices` est vide, et c'est le dernier critère de sortie de la
+  Phase 1 qui reste : l'essai décisif à la main sur deux appareils. La CI produit un APK en
+  artefact, donc l'installation ne demande pas cette machine.
+- **Identifiants en clair sur la machine de développement.** Deux dans `~/.zshrc`, un jeton
+  GitHub dans `~/.git-credentials` — c'est lui qui a porté la première poussée. À faire
+  tourner. Et la clé `id_ed25519_personal` n'est pas enregistrée sur le compte GitHub :
+  l'ajouter supprimerait le besoin de jetons.
+- **Montée du SDK Flutter.** La machine est sur 3.38.9, de janvier. La CI est épinglée
+  dessus depuis qu'un `stable` neuf mois plus récent a fait rougir le premier run. Un
+  analyseur récent n'a eu qu'une chose à reprocher au code, corrigée ; la montée reste un
+  lot à part, machine et CI ensemble.
+
+### Fait depuis
+
+- **Dépôt distant** : [`thatwasyahya/choreo`](https://github.com/thatwasyahya/choreo),
+  public, et **la CI tourne enfin**.
+- **Adresse de commit** : tout l'historique est passé sur `users.noreply.github.com` avant
+  la première poussée. L'adresse personnelle n'apparaît ni dans un commit, ni dans un
+  fichier.
+- **Validation de `SYNC_PROTOCOL.md`** : les sept cas sont le comportement voulu.
 
 ## Particularités de la machine, à ne pas redécouvrir
 

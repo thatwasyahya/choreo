@@ -313,7 +313,7 @@ L1.7 ──► L1.8 ────────────────────
 | **Pas de téléphone** : le critère de sortie réel demande deux appareils | Moyenne | L1.10 pilote deux clients simulés contre un vrai PostgreSQL ; l'essai à la main confirme, il ne découvre pas |
 | La frontière d'isolation ajoutée après coup | Moyenne | Posée en L1.1, testée en L1.1 |
 | Dérive de périmètre vers les séries, les listes, les rôles | Moyenne | Le hors-périmètre est écrit plus haut ; leur schéma existe et reste vide |
-| La CI n'a toujours jamais tourné | Faible | Dépend du dépôt distant, côté product owner |
+| ~~La CI n'a toujours jamais tourné~~ | — | **Levé** : dépôt public créé, la CI tourne |
 
 ### Critères de sortie de la Phase 1
 
