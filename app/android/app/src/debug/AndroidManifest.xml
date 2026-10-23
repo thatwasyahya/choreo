@@ -4,4 +4,16 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Cleartext HTTP, in the DEBUG build and nowhere else.
+         Android refuses it by default from targetSdk 28 onwards, for every
+         host including localhost — so without this line a debug build cannot
+         reach `make dev` at all, by any route: an adb reverse tunnel to
+         localhost:8080, a server on the local network, or an address passed in
+         with --dart-define. The failure surfaces as "the server cannot be
+         reached", which sends you looking at the network instead of here.
+         The release build keeps the secure default: the product talks HTTPS to
+         a real server, and only development needs plaintext.
+    -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>
