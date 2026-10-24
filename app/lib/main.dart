@@ -5,6 +5,7 @@ import 'package:choreo/core/session.dart';
 import 'package:choreo/core/sync/sync_api.dart';
 import 'package:choreo/core/sync/sync_driver.dart';
 import 'package:choreo/core/sync/sync_engine.dart';
+import 'package:choreo/design/theme.dart';
 import 'package:choreo/features/shell/app_shell.dart';
 import 'package:choreo/features/shell/sync_host.dart';
 import 'package:choreo/l10n/generated/app_localizations.dart';
@@ -56,8 +57,8 @@ class ChoreoApp extends StatelessWidget {
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: ThemeData(colorSchemeSeed: _seed),
-      darkTheme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.dark),
+      theme: ChoreoTheme.light,
+      darkTheme: ChoreoTheme.dark,
       home: SyncHost(
         driver: driver,
         child: AppShell(
@@ -70,7 +71,3 @@ class ChoreoApp extends StatelessWidget {
     );
   }
 }
-
-/// A calm green. The product says "to catch up", never "late" (principle 6),
-/// and the colours are not allowed to contradict the words.
-const Color _seed = Color(0xFF3F6C51);

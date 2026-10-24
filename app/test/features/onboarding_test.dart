@@ -212,6 +212,11 @@ void main() {
     await start(tester);
     await tester.tap(find.byIcon(Icons.people_outline));
     await tester.pumpAndSettle();
+
+    // Signing out moved into the overflow menu: a heading and two actions do
+    // not fit across a phone, and these are the rarest things on that screen.
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Se déconnecter'));
     await tester.pumpAndSettle();
 

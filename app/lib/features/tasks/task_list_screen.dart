@@ -166,9 +166,11 @@ class _TaskRow extends StatelessWidget {
       child: CheckboxListTile(
         value: _done,
         onChanged: (_) => unawaited(_toggle()),
-        // The label sits after the box so the whole row is one target, and the
-        // box lands under the thumb rather than across the screen.
-        controlAffinity: ListTileControlAffinity.leading,
+        // The tick sits on the RIGHT, which does two things at once: the text
+        // starts at the page gutter, so the whole screen shares one left edge
+        // with its heading — and the target lands under the thumb of the hand
+        // holding the phone rather than across it.
+        controlAffinity: ListTileControlAffinity.trailing,
         title: Text(
           task.title,
           style: _done

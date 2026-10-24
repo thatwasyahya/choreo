@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:choreo/core/database.dart';
 import 'package:choreo/core/notice_repository.dart';
+import 'package:choreo/design/tokens.dart';
 import 'package:choreo/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
@@ -147,25 +148,30 @@ class _NoticeCard extends StatelessWidget {
               const SizedBox(height: 8),
               _Quote(label: l10n.noticeTheirs, text: theirs),
             ],
-            const SizedBox(height: 8),
-            // Three answers at most, and the first one is the generous one.
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
+            const SizedBox(height: Space.wide),
+            // The generous answer first and across the card, the two others
+            // beneath it and side by side. The first draft had it upside
+            // down: two small buttons floating above a full-width one, which
+            // reads as a stray row rather than a choice.
+            if (mine != null && notice.targetRowId != null)
+              FilledButton(
+                onPressed: () => unawaited(_answer(NoticeChoice.mine)),
+                child: Text(l10n.noticeKeepMine),
+              ),
+            Row(
               children: [
-                TextButton(
-                  onPressed: () => unawaited(_answer(NoticeChoice.dismiss)),
-                  child: Text(l10n.noticeDismiss),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => unawaited(_answer(NoticeChoice.dismiss)),
+                    child: Text(l10n.noticeDismiss),
+                  ),
                 ),
                 if (theirs != null)
-                  TextButton(
-                    onPressed: () => unawaited(_answer(NoticeChoice.theirs)),
-                    child: Text(l10n.noticeKeepTheirs),
-                  ),
-                if (mine != null && notice.targetRowId != null)
-                  FilledButton(
-                    onPressed: () => unawaited(_answer(NoticeChoice.mine)),
-                    child: Text(l10n.noticeKeepMine),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => unawaited(_answer(NoticeChoice.theirs)),
+                      child: Text(l10n.noticeKeepTheirs),
+                    ),
                   ),
               ],
             ),

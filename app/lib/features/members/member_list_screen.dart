@@ -11,6 +11,9 @@ import 'package:choreo/l10n/generated/app_localizations.dart';
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 
+/// The two things on this screen that are not about members.
+enum _Rare { check, signOut }
+
 /// Who is in the household.
 ///
 /// Read from the local replica like everything else, which is why it is legible
@@ -49,17 +52,33 @@ class _MemberListScreenState extends State<MemberListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.membersTitle),
+        // One button rather than two. A heading and a pair of actions do not
+        // fit across a phone: the title came back as "Les memb…", which a
+        // picture showed and a reading of the code never would. These two are
+        // also the rarest things on the screen — a diagnostic, and leaving —
+        // so a menu is where they belong.
         actions: [
-          // The diagnostic screen, kept one tap from here: during a two-device
-          // test the first question is always "did it even reach the server".
-          IconButton(
-            onPressed: () => unawaited(_showCheck(context)),
-            tooltip: l10n.checkTitle,
-            icon: const Icon(Icons.monitor_heart_outlined),
-          ),
-          TextButton(
-            onPressed: () => unawaited(_signOut(context)),
-            child: Text(l10n.signOut),
+          PopupMenuButton<_Rare>(
+            icon: const Icon(Icons.more_horiz),
+            position: PopupMenuPosition.under,
+            onSelected: (choice) {
+              switch (choice) {
+                case _Rare.check:
+                  unawaited(_showCheck(context));
+                case _Rare.signOut:
+                  unawaited(_signOut(context));
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _Rare.check,
+                child: Text(l10n.checkTitle),
+              ),
+              PopupMenuItem(
+                value: _Rare.signOut,
+                child: Text(l10n.signOut),
+              ),
+            ],
           ),
         ],
       ),

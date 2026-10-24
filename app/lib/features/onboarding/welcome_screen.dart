@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:choreo/core/session.dart';
+import 'package:choreo/design/tokens.dart';
 import 'package:choreo/features/onboarding/credentials_screen.dart';
 import 'package:choreo/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -23,34 +24,44 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.gutter,
+            vertical: Space.room,
+          ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // The name sits high and the actions sit low, with the air
+              // between them rather than around the whole block. Centring
+              // everything left a third of the page empty underneath and made
+              // the composition look like a dialog that had lost its box.
+              const Spacer(flex: 3),
               Text(
                 l10n.appTitle,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.displaySmall,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.step),
               Text(
                 l10n.welcomeTagline,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-              const SizedBox(height: 48),
+              const Spacer(flex: 4),
               FilledButton(
                 onPressed: () =>
                     unawaited(_open(context, CredentialsMode.signUp)),
                 child: Text(l10n.createAccount),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.snug),
               TextButton(
                 onPressed: () =>
                     unawaited(_open(context, CredentialsMode.signIn)),
                 child: Text(l10n.haveAccount),
               ),
+              const SizedBox(height: Space.snug),
             ],
           ),
         ),

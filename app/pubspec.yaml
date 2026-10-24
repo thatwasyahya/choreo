@@ -33,6 +33,30 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Bundled, not fetched. An app whose argument is that it works in a cellar
+  # must not download its own letters, which rules out the google_fonts
+  # package. Both families are OFL and their licences sit beside the files.
+  fonts:
+    # Fraunces: an old-style serif with character, for headings. The single
+    # strongest reason this does not look like every other task app.
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/Fraunces-400.ttf
+          weight: 400
+        - asset: assets/fonts/Fraunces-500.ttf
+          weight: 500
+        - asset: assets/fonts/Fraunces-600.ttf
+          weight: 600
+    # Atkinson Hyperlegible: drawn by the Braille Institute so letters cannot
+    # be mistaken for one another at small sizes. It reads at arm's length
+    # across a kitchen, which is where this app is used.
+    - family: AtkinsonHyperlegible
+      fonts:
+        - asset: assets/fonts/AtkinsonHyperlegible-400.ttf
+          weight: 400
+        - asset: assets/fonts/AtkinsonHyperlegible-700.ttf
+          weight: 700
   # Generates the localisations from lib/l10n/*.arb on every pub get and build.
   # Strings are externalised from the very first screen (see l10n.yaml).
   generate: true

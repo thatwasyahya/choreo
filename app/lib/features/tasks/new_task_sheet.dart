@@ -1,3 +1,4 @@
+import 'package:choreo/design/tokens.dart';
 import 'package:choreo/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
@@ -46,10 +47,10 @@ class _NewTaskSheetState extends State<_NewTaskSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+        left: Space.gutter,
+        right: Space.gutter,
+        top: Space.snug,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + Space.wide,
       ),
       child: SafeArea(
         child: Row(
@@ -69,14 +70,27 @@ class _NewTaskSheetState extends State<_NewTaskSheet> {
                 onSubmitted: (_) => _submit(),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: Space.step),
             // A second way out for the thumb, for anyone whose keyboard shows
             // no action key. The same path, so there is one way to create a
             // task and not two.
-            IconButton.filled(
-              onPressed: _submit,
-              tooltip: l10n.addTask,
-              icon: const Icon(Icons.arrow_upward),
+            //
+            // Square-ish rather than round, because the floating button that
+            // opened this sheet is square-ish: one accent, one shape. A circle
+            // here made the same action look like a different one.
+            SizedBox(
+              height: Touch.min,
+              width: Touch.min,
+              child: IconButton.filled(
+                onPressed: _submit,
+                tooltip: l10n.addTask,
+                style: IconButton.styleFrom(
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: Radii.card,
+                  ),
+                ),
+                icon: const Icon(Icons.arrow_upward, size: 20),
+              ),
             ),
           ],
         ),
