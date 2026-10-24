@@ -131,7 +131,12 @@ jobs:
 
       - name: Test
         working-directory: app
-        run: flutter test
+        # Golden images are excluded: they are a photograph of one machine's
+        # text rasteriser, and the comparison is exact, so they fail on every
+        # machine that did not record them. A test that is red everywhere
+        # teaches people to ignore a red build. They stay a local design tool —
+        # `flutter test test/design --update-goldens`, then look at the images.
+        run: flutter test --exclude-tags golden
 
       - name: Build a debug APK
         working-directory: app

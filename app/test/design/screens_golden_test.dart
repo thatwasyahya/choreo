@@ -1,3 +1,6 @@
+@Tags(['golden'])
+library;
+
 import 'dart:convert';
 
 import 'package:choreo/core/api_client.dart';
@@ -39,7 +42,18 @@ const Size _phone = Size(390, 844);
 /// hierarchy, the air, whether the accent lands where the eye should go.
 ///
 /// They double as regression protection — a token changed by accident shows up
-/// as a diff in nine images — but the first job is to be seen.
+/// as a diff in twelve images — but the first job is to be seen.
+///
+/// **Tagged, and excluded from CI on purpose.** A golden is a photograph of
+/// one machine's text rasteriser: the same code on another Linux draws the
+/// same letters a hair differently, and the comparison is exact. Run in CI
+/// these fail on every machine that is not the one that recorded them, which
+/// teaches everybody to ignore a red build — the worst thing a test can do.
+/// So they stay a local design tool. Record them with:
+///
+///     flutter test test/design --update-goldens
+///
+/// and look at the result, which is the point of having them.
 void main() {
   late AppDatabase db;
 
