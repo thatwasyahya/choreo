@@ -47,6 +47,7 @@
   "errBadCredentials": "Wrong login or password.",
   "errInviteUnknown": "That code does not work, or no longer does.",
   "errAlreadyMember": "Already a member of this household.",
+  "errInvalidTimeZone": "The server does not recognise this device's time zone.",
   "errRateLimited": "Too many attempts. Try again in a few minutes.",
   "errServer": "Something went wrong on the server.",
 

@@ -74,6 +74,12 @@
   },
 
   "errAlreadyMember": "Déjà membre de ce foyer.",
+
+  "errInvalidTimeZone": "Le serveur ne reconnaît pas le fuseau horaire de cet appareil.",
+  "@errInvalidTimeZone": {
+    "description": "Code invalid_tz. Rien que la personne puisse corriger, mais le nommer vaut mieux que « quelque chose n'a pas marché » : ça arrive avec un fuseau tout neuf, ou un serveur dont la base de fuseaux a pris du retard."
+  },
+
   "errRateLimited": "Trop d'essais. Réessayer dans quelques minutes.",
   "errServer": "Quelque chose n'a pas marché côté serveur.",
 

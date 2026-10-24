@@ -1,6 +1,7 @@
 import 'package:choreo/core/auth_api.dart';
 import 'package:choreo/core/database.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 
 /// Who this installation is, and which household it is looking at.
 ///
@@ -64,15 +65,31 @@ class SessionRepository {
     required this.db,
     required this.auth,
     DateTime Function()? wallClock,
-    String? timeZone,
+    Future<String> Function()? timeZone,
   }) : _wallClock = wallClock ?? DateTime.now,
-       _timeZone = timeZone ?? DateTime.now().timeZoneName;
+       _timeZone = timeZone ?? _platformTimeZone;
 
   final AppDatabase db;
   final AuthApi auth;
 
   final DateTime Function() _wallClock;
-  final String _timeZone;
+  final Future<String> Function() _timeZone;
+
+  /// This device's IANA zone — "Europe/Paris", and never "CEST".
+  ///
+  /// `DateTime.now().timeZoneName` returns the ABBREVIATION on Android, which
+  /// is what the first real household was created with. An abbreviation is a
+  /// fixed offset with no notion of a transition, so "CEST" means permanent
+  /// summer time: every date in the household reads an hour early once the
+  /// clocks go back, and "bin day is Tuesday" becomes Monday at 23:00.
+  ///
+  /// The zone belongs to the HOUSEHOLD rather than to the device precisely so
+  /// that a human's date means what they meant, wherever they happen to be —
+  /// which only works if the name carries its transitions.
+  static Future<String> _platformTimeZone() async {
+    final zone = await FlutterTimezone.getLocalTimezone();
+    return zone.identifier;
+  }
 
   /// Where the app is, as a live stream off the local database.
   ///
@@ -181,7 +198,7 @@ class SessionRepository {
       accessToken: token,
       name: name,
       displayName: displayName,
-      tz: _timeZone,
+      tz: await _timeZone(),
     );
 
     await _store(

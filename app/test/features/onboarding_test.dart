@@ -43,7 +43,7 @@ void main() {
           sessions: SessionRepository(
             db: db,
             auth: api,
-            timeZone: 'Europe/Paris',
+            timeZone: () async => 'Europe/Paris',
             wallClock: () => DateTime.utc(2026, 10, 19, 14, 30),
           ),
           auth: api,
@@ -67,7 +67,7 @@ void main() {
       final sessions = SessionRepository(
         db: db,
         auth: agreeableAuth(seen: seen),
-        timeZone: 'Europe/Paris',
+        timeZone: () async => 'Europe/Paris',
       );
 
       await sessions.signUp(login: 'yahya', password: 'un mot de passe');

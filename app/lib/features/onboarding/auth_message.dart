@@ -23,6 +23,8 @@ String messageFor(AppLocalizations l10n, AuthFailure failure) {
       return l10n.errInviteUnknown;
     case AuthFailure.alreadyMember:
       return l10n.errAlreadyMember;
+    case AuthFailure.invalidTimeZone:
+      return l10n.errInvalidTimeZone;
     case AuthFailure.rateLimited:
       return l10n.errRateLimited;
     case AuthFailure.server:

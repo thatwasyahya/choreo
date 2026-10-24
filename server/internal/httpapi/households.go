@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -91,6 +92,15 @@ func (h *handlers) createHousehold(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.TZ == "" {
 		req.TZ = "Europe/Paris"
+	}
+	// An IANA name, or nothing. The column decides how every date in this
+	// household is read, so a value that looks like a zone but carries no
+	// transitions — "CEST" — must not reach it. See validateTimeZone.
+	if err := validateTimeZone(req.TZ); err != nil {
+		h.logger.WarnContext(r.Context(), "a client proposed a time zone that is not IANA",
+			slog.String("tz", req.TZ))
+		writeJSON(w, http.StatusUnprocessableEntity, errorBody{Error: codeInvalidTZ})
+		return
 	}
 
 	ctx := r.Context()

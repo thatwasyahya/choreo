@@ -28,6 +28,7 @@ const (
 	codeAlreadyMember  = "already_member"
 	codeRateLimited    = "rate_limited"
 	codeMalformed      = "malformed"
+	codeInvalidTZ      = "invalid_tz"
 	codeForbiddenRole  = "forbidden_role"
 )
 

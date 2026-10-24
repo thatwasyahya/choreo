@@ -26,7 +26,7 @@ void main() {
     return SessionRepository(
       db: db,
       auth: auth,
-      timeZone: 'Europe/Paris',
+      timeZone: () async => 'Europe/Paris',
       wallClock: () => DateTime.utc(2026, 10, 19, 14, 30),
     );
   }
@@ -249,6 +249,59 @@ void main() {
           (e) => e.failure,
           'failure',
           AuthFailure.badCredentials,
+        ),
+      ),
+    );
+  });
+
+  // --- the time zone ---------------------------------------------------------
+
+  // What travels has to be an IANA name, because the household's zone decides
+  // how all of its dates are read. The first real household was created with
+  // "CEST", which is Android's ABBREVIATION — a fixed +02:00 with no
+  // transitions, so every winter date would read an hour early.
+  test('the household is created with an IANA zone, never an abbreviation',
+      () async {
+    final repo = repoWith(agreeable());
+
+    await repo.signUp(login: 'yahya', password: 'un mot de passe');
+    await repo.createHousehold(name: 'Maison', displayName: 'Yahya');
+
+    final created = seen.lastWhere((r) => r.url.path == '/v1/households');
+    final tz = bodyOf(created)['tz'] as String;
+
+    expect(tz, 'Europe/Paris');
+    expect(
+      tz,
+      contains('/'),
+      reason: 'a region is what carries the transitions: CET and CEST do not',
+    );
+    expect(tz, isNot(anyOf('CET', 'CEST', 'UTC+2', '+02:00')));
+  });
+
+  // Nothing the person can do about it, but it is named rather than folded
+  // into "something went wrong": a brand new zone, or a server whose timezone
+  // database has fallen behind, both land here.
+  test('a zone the server does not know is said as such', () async {
+    final repo = repoWith(refusingAuth(422, 'invalid_tz'));
+    await db
+        .into(db.deviceIdentity)
+        .insert(
+          const DeviceIdentityCompanion(
+            id: Value(1),
+            deviceId: Value('device-1'),
+            accessToken: Value('access-1'),
+            refreshToken: Value('refresh-1'),
+          ),
+        );
+
+    await expectLater(
+      repo.createHousehold(name: 'Maison', displayName: 'Yahya'),
+      throwsA(
+        isA<AuthException>().having(
+          (e) => e.failure,
+          'failure',
+          AuthFailure.invalidTimeZone,
         ),
       ),
     );

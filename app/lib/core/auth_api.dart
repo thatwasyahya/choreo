@@ -190,6 +190,11 @@ enum AuthFailure {
 
   alreadyMember,
 
+  /// The server does not know this device's time zone. Nothing the person can
+  /// act on, but worth naming: it is the kind of thing a brand new zone or an
+  /// out-of-date server causes, and "something went wrong" would hide it.
+  invalidTimeZone,
+
   /// Too many attempts. Not a failure of the person's, and the screen says so.
   rateLimited,
 
@@ -408,6 +413,8 @@ class AuthApi {
         return AuthFailure.inviteUnknown;
       case 'already_member':
         return AuthFailure.alreadyMember;
+      case 'invalid_tz':
+        return AuthFailure.invalidTimeZone;
       case 'rate_limited':
         return AuthFailure.rateLimited;
       default:
