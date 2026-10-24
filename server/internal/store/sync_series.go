@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -51,14 +52,19 @@ func (s *Store) advanceSeries(
 	              WHERE household_id = $1 AND id = $2
 	                AND open_occurrence_id = $3
 	                AND paused = false AND deleted_rev IS NULL
-	          RETURNING next_index, title`
+	          RETURNING next_index, title, mode, rule, rel_days, anchor_on,
+	                    catch_up, rotation, rotation_offset`
 
 	var (
 		nextIndex int
 		title     string
+		plan      Schedule
+		rotation  []uuid.UUID
+		offset    int
 	)
 	err := tx.QueryRow(ctx, cas, householdID, seriesID, expected, seq, by).
-		Scan(&nextIndex, &title)
+		Scan(&nextIndex, &title, &plan.Mode, &plan.Rule, &plan.RelDays,
+			&plan.AnchorOn, &plan.CatchUp, &rotation, &offset)
 	switch {
 	case errorsIsNoRows(err):
 		// Somebody else already advanced it, or it is paused or deleted. The
@@ -70,18 +76,28 @@ func (s *Store) advanceSeries(
 
 	next := OccurrenceID(seriesID, nextIndex)
 
-	// The schedule arithmetic — RRULE subset, "X days after the last time",
-	// rotation — belongs to phase 2. Phase 1 owes the INVARIANT: exactly one
-	// open occurrence, with a derived identity. So the next occurrence is
-	// created with no date, and phase 2 fills it in.
+	due, err := s.scheduleNext(ctx, tx, householdID, expected, plan)
+	if err != nil {
+		return false, err
+	}
+
+	// Whose turn it is. The rotation walks with the index, so it survives a
+	// phone being offline: both clients compute the same position from the
+	// same integer rather than from who happened to sync first.
+	var assignee *uuid.UUID
+	if len(rotation) > 0 {
+		assignee = &rotation[(nextIndex+offset)%len(rotation)]
+	}
+
 	const create = `INSERT INTO tasks
 	    (id, household_id, rev, created_rev, updated_by, kind, title,
-	     series_id, series_index)
-	    VALUES ($1, $2, $3, $3, $4, 'task', $5, $6, $7)
+	     series_id, series_index, due_on, assignee_id)
+	    VALUES ($1, $2, $3, $3, $4, 'task', $5, $6, $7, $8, $9)
 	    ON CONFLICT (household_id, id) DO NOTHING`
 
 	if _, err := tx.Exec(ctx, create,
-		next, householdID, seq, by, title, seriesID, nextIndex); err != nil {
+		next, householdID, seq, by, title, seriesID, nextIndex,
+		due, assignee); err != nil {
 		return false, fmt.Errorf("store: creating the next occurrence: %w", err)
 	}
 
@@ -92,6 +108,58 @@ func (s *Store) advanceSeries(
 	}
 
 	return true, nil
+}
+
+// scheduleNext works out when the occurrence after `previous` falls.
+//
+// A bad rule must NEVER fail the transaction. The gesture that brought us here
+// is a human ticking a chore, and the one thing worse than a series with no
+// date is a tick that disappeared because a rule somebody typed in April does
+// not parse. So an unusable schedule yields a dateless occurrence — visible,
+// tickable, and obviously wrong to whoever set it up — rather than an error.
+func (s *Store) scheduleNext(
+	ctx context.Context, tx pgx.Tx,
+	householdID, previous uuid.UUID, plan Schedule,
+) (*time.Time, error) {
+	// The date the previous occurrence carried, and when it was actually
+	// ticked. A relative series counts from the tick: "three weeks after the
+	// last time we changed the sheets" means after the change, not after the
+	// date a machine predicted for it.
+	const look = `SELECT t.due_on,
+	                     (SELECT max(c.occurred_on) FROM completions c
+	                       WHERE c.household_id = t.household_id
+	                         AND c.row_id = t.id)
+	                FROM tasks t
+	               WHERE t.household_id = $1 AND t.id = $2`
+
+	var previousDue, doneOn *time.Time
+	if err := tx.QueryRow(ctx, look, householdID, previous).
+		Scan(&previousDue, &doneOn); err != nil && !errorsIsNoRows(err) {
+		return nil, fmt.Errorf("store: reading the previous occurrence: %w", err)
+	}
+
+	from := plan.AnchorOn
+	if previousDue != nil {
+		from = *previousDue
+	}
+
+	return dueOrNothing(plan, from, doneOn, time.Now().UTC()), nil
+}
+
+// dueOrNothing is nextDue with the refusal turned into an absent date.
+//
+// The swallow lives in a function whose name says so, rather than inside the
+// caller where it would read as an error being ignored. A series whose rule
+// does not parse produces occurrences with no date; it does not produce a
+// failed transaction, because the transaction is carrying somebody's tick.
+func dueOrNothing(
+	plan Schedule, from time.Time, doneOn *time.Time, today time.Time,
+) *time.Time {
+	at, err := nextDue(plan, from, doneOn, today)
+	if err != nil {
+		return nil
+	}
+	return &at
 }
 
 // reopenSeries applies the successor rule, for the two gestures that would
