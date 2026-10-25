@@ -51,6 +51,34 @@ WITH page AS (
 
     UNION ALL
 
+    -- Series. They were in the snapshot and not here, so a recurring chore
+    -- reached a phone only when it rebuilt its whole replica — which is to
+    -- say, almost never. The acceptance test that creates one over HTTP is
+    -- what caught it.
+    SELECT 'series', s.id, s.rev,
+           s.deleted_rev IS NOT NULL,
+           s.updated_by, s.updated_at,
+           jsonb_build_object(
+               'title', s.title,
+               'mode', s.mode,
+               'rule', s.rule,
+               'rel_days', s.rel_days,
+               'anchor_on', s.anchor_on,
+               'rotation', s.rotation,
+               'rotation_offset', s.rotation_offset,
+               'paused', s.paused,
+               'catch_up', s.catch_up,
+               -- Arbitrated here and mirrored there: a client reads these two
+               -- and never writes them.
+               'next_index', s.next_index,
+               'open_occurrence_id', s.open_occurrence_id,
+               'field_revs', s.field_revs,
+               'ext', s.ext)
+      FROM series s
+     WHERE s.household_id = $1 AND s.rev > $2
+
+    UNION ALL
+
     SELECT 'member', m.id, m.rev,
            m.deleted_rev IS NOT NULL,
            m.updated_by, m.updated_at,

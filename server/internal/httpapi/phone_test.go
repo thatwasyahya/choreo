@@ -226,7 +226,10 @@ func (p *phone) sync() []map[string]any {
 
 	status, body := p.api.do(http.MethodPost, "/v1/households/"+p.house+"/sync", p.token,
 		map[string]any{
-			"protocol": 1, "app_version": "1.0.0",
+			// The version this app speaks. Two, since recurring chores joined
+			// the vocabulary — and the server still serves 1, which is the
+			// rule that lets a phone nobody has updated keep working.
+			"protocol": 2, "app_version": "2.0.0",
 			"cursor_seq": p.cursor, "limit": 200,
 			"ops": sending,
 		})
