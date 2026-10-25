@@ -14,10 +14,10 @@ import (
 // until one entity overflows its own limit: its surplus rows sit below the
 // cut-off revision, the cursor advances past them, and they are lost for good.
 //
-// Completions and tags are aggregated INTO their task's state rather than
-// travelling as their own entities: ticking a task bumps the task's rev, so
-// they have no revision of their own and a pull has seven top-level kinds
-// instead of nine.
+// Completions and tags are aggregated INTO the state of the row they belong
+// to rather than travelling as their own entities: a tick bumps that row's rev,
+// so it has no revision of its own and cannot be paginated away from the thing
+// it is a fact about.
 const pullPage = `
 WITH page AS (
     SELECT 'task' AS entity, t.id AS row_id, t.rev,
@@ -76,6 +76,51 @@ WITH page AS (
                'ext', s.ext)
       FROM series s
      WHERE s.household_id = $1 AND s.rev > $2
+
+    UNION ALL
+
+    -- Lists and their items. Both were in the snapshot and in neither page,
+    -- the same hole series fell into: a shared shopping list reached a second
+    -- phone only when that phone rebuilt its whole replica.
+    SELECT 'list', l.id, l.rev,
+           l.deleted_rev IS NOT NULL,
+           l.updated_by, l.updated_at,
+           jsonb_build_object(
+               'name', l.name,
+               'kind', l.kind,
+               'ext', l.ext,
+               'field_revs', l.field_revs)
+      FROM lists l
+     WHERE l.household_id = $1 AND l.rev > $2
+
+    UNION ALL
+
+    SELECT 'list_item', i.id, i.rev,
+           i.deleted_rev IS NOT NULL,
+           i.updated_by, i.updated_at,
+           jsonb_build_object(
+               'list_id', i.list_id,
+               'label', i.label,
+               'qty', i.qty,
+               'unit', i.unit,
+               -- Fractional, and a string: two people reordering the same list
+               -- in the same minute both get their move.
+               'order_key', i.order_key,
+               'ext', i.ext,
+               'field_revs', i.field_revs,
+               -- A tick carries WHO, not merely that somebody did it: two
+               -- trolleys in the same shop need to see each other.
+                          'completions', COALESCE((
+                   SELECT jsonb_agg(jsonb_build_object(
+                              'member_id', c.member_id,
+                              'completion_id', c.completion_id,
+                              'occurred_on', c.occurred_on,
+                              'clock_suspect', c.clock_suspect))
+                     FROM completions c
+                    WHERE c.household_id = i.household_id AND c.row_id = i.id
+               ), '[]'::jsonb))
+      FROM list_items i
+     WHERE i.household_id = $1 AND i.rev > $2
 
     UNION ALL
 

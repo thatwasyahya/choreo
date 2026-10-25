@@ -217,33 +217,47 @@ func (s *Store) opCreate(
 		return s.opCreateSeries(ctx, tx, householdID, in, op)
 	}
 
-	if op.Entity != EntityTask {
+	shape, exists := shapeOf(op.Entity)
+	if !exists || in.Protocol < shape.since {
 		return refusal(op.OpID, ReasonUnsupportedOp), nil
 	}
 	if op.RowID == uuid.Nil {
 		return refusal(op.OpID, ReasonMalformed), nil
 	}
 
-	title, ok := op.Fields["title"].(string)
-	if !ok || strings.TrimSpace(title) == "" {
-		// Only the title is ever mandatory (product principle 1).
+	// Exactly one field is mandatory, and it is one for every entity: a title,
+	// a name, a label. Capturing something costs a single line of typing
+	// (product principle 1); everything else is filled in later or never.
+	text, isText := op.Fields[shape.mandatory].(string)
+	if !isText || strings.TrimSpace(text) == "" {
 		return refusal(op.OpID, ReasonMalformed), nil
 	}
 
-	kind := EntityTask
-	if raw, present := op.Fields["kind"]; present {
-		text, isText := raw.(string)
-		if !isText || (text != "task" && text != "event") {
-			return refusal(op.OpID, ReasonMalformed), nil
-		}
-		kind = text
+	kind, ok := kindOf(shape, op.Fields)
+	if !ok {
+		return refusal(op.OpID, ReasonMalformed), nil
+	}
+
+	parent, wrong, err := s.liveParent(ctx, tx, shape, householdID, op.Fields)
+	if err != nil {
+		return OpResult{}, err
+	}
+	switch wrong {
+	case ReasonMalformed:
+		return refusal(op.OpID, ReasonMalformed), nil
+	case ReasonTargetGone:
+		// The author's words have to come back to them: somebody typed
+		// "butter" on the way to the shop and the list had been deleted an
+		// hour before. The same rule as a field write against a purged row.
+		return s.refuseAndTell(
+			ctx, tx, householdID, in, op, ReasonTargetGone, op.Fields)
 	}
 
 	// Validate before consuming a sequence number. set_fields classifies first
 	// for the same reason: a malformed operation should not leave a gap in the
-	// household's clock. Gaps are harmless to a cursor, but a clock that moves
+	// household clock. Gaps are harmless to a cursor, but a clock that moves
 	// for nothing is a clock nobody can reason about.
-	known, unknown, err := split(op.Fields)
+	known, unknown, err := split(shape, op.Fields)
 	if err != nil {
 		return OpResult{}, err
 	}
@@ -255,9 +269,10 @@ func (s *Store) opCreate(
 
 	revs := map[string]int64{}
 	for name := range op.Fields {
-		if name != "kind" {
-			revs[name] = seq
+		if writtenOnce(shape, name) {
+			continue
 		}
+		revs[name] = seq
 	}
 
 	fieldRevs, err := jsonOf(revs)
@@ -269,31 +284,15 @@ func (s *Store) opCreate(
 		return OpResult{}, err
 	}
 
-	columns := []string{"id", "household_id", "rev", "created_rev", "updated_by",
-		"kind", "field_revs", "ext"}
-	values := []any{op.RowID, householdID, seq, seq, in.MemberID, kind, fieldRevs, ext}
-	casts := []string{"", "", "", "", "", "", "::jsonb", "::jsonb"}
-
-	for name, value := range known {
-		column, cast, _ := taskColumn(name)
-		columns = append(columns, column)
-		values = append(values, value)
-		casts = append(casts, "::"+cast)
-	}
-
-	placeholders := make([]string, len(values))
-	for i := range values {
-		placeholders[i] = "$" + strconv.Itoa(i+1) + casts[i]
-	}
-
-	//nolint:gosec // every column name comes from taskColumn's closed switch
-	query := "INSERT INTO tasks (" + strings.Join(columns, ", ") +
-		") VALUES (" + strings.Join(placeholders, ", ") +
-		") ON CONFLICT (household_id, id) DO NOTHING"
+	query, values := insertStatement(shape, newRow{
+		id: op.RowID, house: householdID, by: in.MemberID, seq: seq,
+		kind: kind, parent: parent,
+		known: known, fieldRevs: fieldRevs, ext: ext,
+	})
 
 	tag, err := tx.Exec(ctx, query, values...)
 	if err != nil {
-		return OpResult{}, fmt.Errorf("store: creating a task: %w", err)
+		return OpResult{}, fmt.Errorf("store: creating a %s: %w", shape.entity, err)
 	}
 	if tag.RowsAffected() == 0 {
 		return OpResult{OpID: op.OpID, Outcome: OutcomeAbsorbed}, nil
@@ -302,27 +301,179 @@ func (s *Store) opCreate(
 	return OpResult{OpID: op.OpID, Outcome: OutcomeApplied, Rev: seq}, nil
 }
 
+// kindOf reads the kind a new row is born with.
+//
+// Set once and never written again, so this is the only place that decides it.
+// A table with no kind column answers with the empty string, which the insert
+// then leaves out.
+func kindOf(shape rowShape, fields map[string]any) (string, bool) {
+	raw, present := fields["kind"]
+	if !present || len(shape.kinds) == 0 {
+		return shape.defaultKind(), true
+	}
+
+	named, isText := raw.(string)
+	if !isText || !shape.accepts(named) {
+		return "", false
+	}
+	return named, true
+}
+
+// liveParent resolves the row this one hangs off, where it hangs off anything.
+//
+// An item belongs to a list, and a list that is gone cannot hold one. The
+// foreign key would catch that too, but as an aborted transaction and a 500 —
+// our problem, and unanswerable. Asked here, it is a refusal with a reason.
+//
+// The second return is empty when nothing is wrong, and otherwise the refusal
+// the caller should give.
+func (s *Store) liveParent(
+	ctx context.Context, tx pgx.Tx, shape rowShape,
+	householdID uuid.UUID, fields map[string]any,
+) (*uuid.UUID, string, error) {
+	if shape.parent == "" {
+		return nil, "", nil
+	}
+
+	id, ok := uuidField(fields[shape.parent])
+	if !ok {
+		return nil, ReasonMalformed, nil
+	}
+
+	alive, err := s.rowAlive(ctx, tx, shape.parentIn, householdID, id)
+	if err != nil {
+		return nil, "", err
+	}
+	if !alive {
+		return nil, ReasonTargetGone, nil
+	}
+	return &id, "", nil
+}
+
+// newRow is everything a creation writes, assembled before any SQL exists.
+type newRow struct {
+	id     uuid.UUID
+	house  uuid.UUID
+	by     uuid.UUID
+	seq    int64
+	kind   string
+	parent *uuid.UUID
+
+	known     map[string]any
+	fieldRevs []byte
+	ext       []byte
+}
+
+// insertStatement assembles the INSERT for one new row.
+//
+// Pure, and kept apart from running it, because the whole interest is in which
+// columns a table actually has: a list has a kind and no parent, an item has a
+// parent and no kind, a task has a kind and no parent, and every one of them
+// has an id, a revision and somewhere to keep the fields we do not know.
+func insertStatement(shape rowShape, row newRow) (string, []any) {
+	columns := []string{"id", "household_id", "rev", "created_rev", "updated_by",
+		"field_revs", "ext"}
+	values := []any{row.id, row.house, row.seq, row.seq, row.by, row.fieldRevs, row.ext}
+	casts := []string{"", "", "", "", "", "::jsonb", "::jsonb"}
+
+	if len(shape.kinds) > 0 {
+		columns = append(columns, "kind")
+		values = append(values, row.kind)
+		casts = append(casts, "")
+	}
+	if row.parent != nil {
+		columns = append(columns, shape.parent)
+		values = append(values, *row.parent)
+		casts = append(casts, "")
+	}
+
+	for name, value := range row.known {
+		col, _ := shape.column(name)
+		columns = append(columns, col.name)
+		values = append(values, value)
+		casts = append(casts, "::"+col.cast)
+	}
+
+	placeholders := make([]string, len(values))
+	for i := range values {
+		placeholders[i] = "$" + strconv.Itoa(i+1) + casts[i]
+	}
+
+	//nolint:gosec // every name comes from shapeOf and its closed column switch
+	query := "INSERT INTO " + shape.table + " (" + strings.Join(columns, ", ") +
+		") VALUES (" + strings.Join(placeholders, ", ") +
+		") ON CONFLICT (household_id, id) DO NOTHING"
+
+	return query, values
+}
+
+// writtenOnce reports whether a field is part of the row identity rather than
+// its content: set by the creation and never writable again.
+//
+// Neither belongs in field_revs or in ext. A second, stale copy of a row own
+// identity sitting in its ext column is the kind of thing that reads as data
+// for a year and then decides an argument.
+func writtenOnce(shape rowShape, field string) bool {
+	return field == "kind" || (shape.parent != "" && field == shape.parent)
+}
+
 // split separates fields the server has columns for from those it does not.
-func split(fields map[string]any) (known, unknown map[string]any, err error) {
+func split(shape rowShape, fields map[string]any) (known, unknown map[string]any, err error) {
 	known = map[string]any{}
 	unknown = map[string]any{}
 
 	for name, value := range fields {
-		if name == "kind" {
+		if writtenOnce(shape, name) {
 			continue
 		}
 
-		_, cast, ok := taskColumn(name)
+		col, ok := shape.column(name)
 		if !ok {
 			unknown[name] = value
 			continue
 		}
 
-		coerced, err := coerce(cast, value)
+		coerced, err := coerce(col, value)
 		if err != nil {
 			return nil, nil, err
 		}
 		known[name] = coerced
 	}
 	return known, unknown, nil
+}
+
+// uuidField reads an id that arrived as JSON.
+func uuidField(raw any) (uuid.UUID, bool) {
+	text, ok := raw.(string)
+	if !ok {
+		return uuid.Nil, false
+	}
+	id, err := uuid.Parse(text)
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return id, true
+}
+
+// rowAlive reports whether a row exists and is not buried.
+//
+// FOR SHARE, not a bare read: it has to still be true when the insert lands.
+// The lock order is the same as every lifecycle operation — the row first, the
+// household sequence second — so nothing here can deadlock against a deletion.
+func (s *Store) rowAlive(
+	ctx context.Context, tx pgx.Tx, table string, householdID, rowID uuid.UUID,
+) (bool, error) {
+	//nolint:gosec // table comes from shapeOf closed switch, never from the wire
+	q := "SELECT deleted_rev IS NULL FROM " + table +
+		" WHERE household_id = $1 AND id = $2 FOR SHARE"
+
+	var alive bool
+	err := tx.QueryRow(ctx, q, householdID, rowID).Scan(&alive)
+	switch {
+	case errorsIsNoRows(err):
+		return false, nil
+	case err != nil:
+		return false, fmt.Errorf("store: checking a parent row: %w", err)
+	}
+	return alive, nil
 }

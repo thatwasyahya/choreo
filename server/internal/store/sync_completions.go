@@ -8,31 +8,41 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// taskRow is the little a lifecycle operation needs to know about its target.
-type taskRow struct {
+// rowFacts is the little a lifecycle operation needs to know about its target.
+type rowFacts struct {
 	rev         int64
 	deleted     bool
 	seriesID    *uuid.UUID
 	seriesIndex *int
 }
 
-// lockTask takes the row lock and reads what the arbiter needs.
-func (s *Store) lockTask(
-	ctx context.Context, tx pgx.Tx, householdID, rowID uuid.UUID,
-) (taskRow, bool, error) {
-	const q = `SELECT rev, deleted_rev IS NOT NULL, series_id, series_index
-	             FROM tasks
-	            WHERE household_id = $1 AND id = $2
-	              FOR UPDATE`
+// lockRow takes the row lock and reads what the arbiter needs.
+//
+// The two occurrence columns come back as typed nulls for the tables that do
+// not have them, so one scan serves every entity. Being an occurrence of a
+// recurring chore is a fact about tasks, not about rows in general — and a
+// list item that pretended to have a series would quietly grow one.
+func (s *Store) lockRow(
+	ctx context.Context, tx pgx.Tx, shape rowShape, householdID, rowID uuid.UUID,
+) (rowFacts, bool, error) {
+	occurrence := "NULL::uuid, NULL::int"
+	if shape.series {
+		occurrence = "series_id, series_index"
+	}
 
-	var row taskRow
+	//nolint:gosec // table and columns come from shapeOf's closed switch
+	q := "SELECT rev, deleted_rev IS NOT NULL, " + occurrence +
+		" FROM " + shape.table +
+		" WHERE household_id = $1 AND id = $2 FOR UPDATE"
+
+	var row rowFacts
 	err := tx.QueryRow(ctx, q, householdID, rowID).
 		Scan(&row.rev, &row.deleted, &row.seriesID, &row.seriesIndex)
 	switch {
 	case errorsIsNoRows(err):
-		return taskRow{}, false, nil
+		return rowFacts{}, false, nil
 	case err != nil:
-		return taskRow{}, false, fmt.Errorf("store: locking a task: %w", err)
+		return rowFacts{}, false, fmt.Errorf("store: locking a %s: %w", shape.entity, err)
 	}
 	return row, true, nil
 }
@@ -49,11 +59,18 @@ func (s *Store) lockTask(
 func (s *Store) opComplete(
 	ctx context.Context, tx pgx.Tx, householdID uuid.UUID, in SyncInput, op Op,
 ) (OpResult, error) {
-	if op.Entity != EntityTask || op.RowID == uuid.Nil || op.CompletionID == uuid.Nil {
+	shape, exists := shapeOf(op.Entity)
+	if !exists || in.Protocol < shape.since {
+		return refusal(op.OpID, ReasonUnsupportedOp), nil
+	}
+	// Ticking something that cannot be ticked is malformed and not
+	// unsupported: unsupported invites a retry, and no deploy will ever make a
+	// ticked list mean anything.
+	if !shape.tickable || op.RowID == uuid.Nil || op.CompletionID == uuid.Nil {
 		return refusal(op.OpID, ReasonMalformed), nil
 	}
 
-	target, found, err := s.lockTask(ctx, tx, householdID, op.RowID)
+	target, found, err := s.lockRow(ctx, tx, shape, householdID, op.RowID)
 	if err != nil {
 		return OpResult{}, err
 	}
@@ -112,11 +129,21 @@ func (s *Store) opComplete(
 		return OpResult{OpID: op.OpID, Outcome: OutcomeAbsorbed, Rev: target.rev}, nil
 	}
 
-	const close = `UPDATE tasks
-	                  SET closed_rev = $3, rev = $3, updated_by = $4, updated_at = now()
-	                WHERE household_id = $1 AND id = $2`
+	// The revision moves whatever the row is, or the tick never reaches the
+	// other phone. Only a task ALSO remembers being closed: an item on a
+	// shopping list is closed by its completion and by nothing else, and two
+	// columns that can disagree are two columns that will.
+	closed := ""
+	if shape.closes {
+		closed = "closed_rev = $3, "
+	}
+
+	//nolint:gosec // table and columns come from shapeOf's closed switch
+	close := "UPDATE " + shape.table + " SET " + closed +
+		"rev = $3, updated_by = $4, updated_at = now()" +
+		" WHERE household_id = $1 AND id = $2"
 	if _, err := tx.Exec(ctx, close, householdID, op.RowID, seq, in.MemberID); err != nil {
-		return OpResult{}, fmt.Errorf("store: closing a task: %w", err)
+		return OpResult{}, fmt.Errorf("store: closing a %s: %w", shape.entity, err)
 	}
 
 	result := OpResult{OpID: op.OpID, Outcome: OutcomeApplied, Rev: seq}
@@ -148,11 +175,15 @@ func boolWord(flag bool) string {
 func (s *Store) opUncomplete(
 	ctx context.Context, tx pgx.Tx, householdID uuid.UUID, in SyncInput, op Op,
 ) (OpResult, error) {
-	if op.Entity != EntityTask || op.RowID == uuid.Nil || len(op.Observed) == 0 {
+	shape, exists := shapeOf(op.Entity)
+	if !exists || in.Protocol < shape.since {
+		return refusal(op.OpID, ReasonUnsupportedOp), nil
+	}
+	if !shape.tickable || op.RowID == uuid.Nil || len(op.Observed) == 0 {
 		return refusal(op.OpID, ReasonMalformed), nil
 	}
 
-	target, found, err := s.lockTask(ctx, tx, householdID, op.RowID)
+	target, found, err := s.lockRow(ctx, tx, shape, householdID, op.RowID)
 	if err != nil {
 		return OpResult{}, err
 	}
@@ -209,13 +240,21 @@ func (s *Store) opUncomplete(
 		return OpResult{OpID: op.OpID, Outcome: OutcomeAbsorbed, Rev: target.rev}, nil
 	}
 
-	const reopen = `UPDATE tasks
-	                   SET closed_rev = CASE WHEN $5 = 0 THEN NULL ELSE closed_rev END,
-	                       rev = $3, updated_by = $4, updated_at = now()
-	                 WHERE household_id = $1 AND id = $2`
-	if _, err := tx.Exec(ctx, reopen,
-		householdID, op.RowID, seq, in.MemberID, left); err != nil {
-		return OpResult{}, fmt.Errorf("store: reopening a task: %w", err)
+	args := []any{householdID, op.RowID, seq, in.MemberID}
+	clear := ""
+	if shape.closes {
+		// A row with a completion left on it is still closed, so the column
+		// only clears when the set empties.
+		clear = "closed_rev = CASE WHEN $5 = 0 THEN NULL ELSE closed_rev END, "
+		args = append(args, left)
+	}
+
+	//nolint:gosec // table and columns come from shapeOf's closed switch
+	reopen := "UPDATE " + shape.table + " SET " + clear +
+		"rev = $3, updated_by = $4, updated_at = now()" +
+		" WHERE household_id = $1 AND id = $2"
+	if _, err := tx.Exec(ctx, reopen, args...); err != nil {
+		return OpResult{}, fmt.Errorf("store: reopening a %s: %w", shape.entity, err)
 	}
 
 	return OpResult{OpID: op.OpID, Outcome: OutcomeApplied, Rev: seq}, nil

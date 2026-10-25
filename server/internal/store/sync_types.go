@@ -83,6 +83,14 @@ const (
 // adding to the vocabulary is a version increment rather than a tweak.
 const protocolSeries = 2
 
+// protocolLists is the version that added shared checklists.
+//
+// One increment per entity the fil gains, by the same rule as series: the
+// number is what tells an app too old to know about lists from an app with a
+// bug. protocolMin stays at 1 because every older vocabulary is a strict
+// subset of this one — nothing a protocol-1 phone can say has changed meaning.
+const protocolLists = 3
+
 // Entities a pull returns. Completions and tags travel INSIDE their task's
 // state and have no rev of their own, so they are not listed here.
 const (

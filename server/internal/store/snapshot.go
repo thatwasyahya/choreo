@@ -97,7 +97,16 @@ const snapshotRows = `
            jsonb_build_object('list_id', i.list_id, 'label', i.label,
                               'qty', i.qty, 'unit', i.unit,
                               'order_key', i.order_key,
-                              'ext', i.ext, 'field_revs', i.field_revs)
+                              'ext', i.ext, 'field_revs', i.field_revs,
+                                         'completions', COALESCE((
+                   SELECT jsonb_agg(jsonb_build_object(
+                              'member_id', c.member_id,
+                              'completion_id', c.completion_id,
+                              'occurred_on', c.occurred_on,
+                              'clock_suspect', c.clock_suspect))
+                     FROM completions c
+                    WHERE c.household_id = i.household_id AND c.row_id = i.id
+               ), '[]'::jsonb))
       FROM list_items i
      WHERE i.household_id = $1 AND i.deleted_rev IS NULL
 

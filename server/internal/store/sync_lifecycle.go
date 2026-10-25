@@ -24,11 +24,15 @@ import (
 func (s *Store) opDelete(
 	ctx context.Context, tx pgx.Tx, householdID uuid.UUID, in SyncInput, op Op,
 ) (OpResult, error) {
-	if op.Entity != EntityTask || op.RowID == uuid.Nil {
+	shape, exists := shapeOf(op.Entity)
+	if !exists || in.Protocol < shape.since {
+		return refusal(op.OpID, ReasonUnsupportedOp), nil
+	}
+	if op.RowID == uuid.Nil {
 		return refusal(op.OpID, ReasonMalformed), nil
 	}
 
-	target, found, err := s.lockTask(ctx, tx, householdID, op.RowID)
+	target, found, err := s.lockRow(ctx, tx, shape, householdID, op.RowID)
 	if err != nil {
 		return OpResult{}, err
 	}
@@ -58,11 +62,13 @@ func (s *Store) opDelete(
 	// The content columns are KEPT. A tombstone is a column, not a table:
 	// SELECT * on the row still tells the whole story, including what the
 	// thing was called.
-	const bury = `UPDATE tasks
-	                 SET deleted_rev = $3, rev = $3, updated_by = $4, updated_at = now()
-	               WHERE household_id = $1 AND id = $2`
+	//
+	//nolint:gosec // the table comes from shapeOf's closed switch
+	bury := "UPDATE " + shape.table +
+		" SET deleted_rev = $3, rev = $3, updated_by = $4, updated_at = now()" +
+		" WHERE household_id = $1 AND id = $2"
 	if _, err := tx.Exec(ctx, bury, householdID, op.RowID, seq, in.MemberID); err != nil {
-		return OpResult{}, fmt.Errorf("store: burying a task: %w", err)
+		return OpResult{}, fmt.Errorf("store: burying a %s: %w", shape.entity, err)
 	}
 
 	result := OpResult{OpID: op.OpID, Outcome: OutcomeApplied, Rev: seq}
@@ -87,11 +93,15 @@ func (s *Store) opDelete(
 func (s *Store) opRestore(
 	ctx context.Context, tx pgx.Tx, householdID uuid.UUID, in SyncInput, op Op,
 ) (OpResult, error) {
-	if op.Entity != EntityTask || op.RowID == uuid.Nil {
+	shape, exists := shapeOf(op.Entity)
+	if !exists || in.Protocol < shape.since {
+		return refusal(op.OpID, ReasonUnsupportedOp), nil
+	}
+	if op.RowID == uuid.Nil {
 		return refusal(op.OpID, ReasonMalformed), nil
 	}
 
-	target, found, err := s.lockTask(ctx, tx, householdID, op.RowID)
+	target, found, err := s.lockRow(ctx, tx, shape, householdID, op.RowID)
 	if err != nil {
 		return OpResult{}, err
 	}
@@ -121,11 +131,12 @@ func (s *Store) opRestore(
 		}
 	}
 
-	const raise = `UPDATE tasks
-	                  SET deleted_rev = NULL, rev = $3, updated_by = $4, updated_at = now()
-	                WHERE household_id = $1 AND id = $2`
+	//nolint:gosec // the table comes from shapeOf's closed switch
+	raise := "UPDATE " + shape.table +
+		" SET deleted_rev = NULL, rev = $3, updated_by = $4, updated_at = now()" +
+		" WHERE household_id = $1 AND id = $2"
 	if _, err := tx.Exec(ctx, raise, householdID, op.RowID, seq, in.MemberID); err != nil {
-		return OpResult{}, fmt.Errorf("store: restoring a task: %w", err)
+		return OpResult{}, fmt.Errorf("store: restoring a %s: %w", shape.entity, err)
 	}
 
 	return OpResult{OpID: op.OpID, Outcome: OutcomeApplied, Rev: seq}, nil

@@ -74,7 +74,7 @@ type syncResponse struct {
 // vocabulary; a client speaking 1 simply never sends one.
 const (
 	protocolMin = 1
-	protocolMax = 2
+	protocolMax = 3
 )
 
 // maxWait caps how long one request may be held open. The protocol asks for

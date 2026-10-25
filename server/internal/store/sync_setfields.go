@@ -32,17 +32,22 @@ import (
 func (s *Store) opSetFields(
 	ctx context.Context, tx pgx.Tx, householdID uuid.UUID, in SyncInput, op Op,
 ) (OpResult, error) {
-	if op.Entity != EntityTask {
+	shape, exists := shapeOf(op.Entity)
+	if !exists || in.Protocol < shape.since {
 		return refusal(op.OpID, ReasonUnsupportedOp), nil
 	}
 	if len(op.Fields) == 0 || op.RowID == uuid.Nil {
 		return refusal(op.OpID, ReasonMalformed), nil
 	}
 
-	const load = `SELECT rev, field_revs, deleted_rev IS NOT NULL, updated_by, to_jsonb(t)
-	                FROM tasks t
-	               WHERE household_id = $1 AND id = $2
-	                 FOR UPDATE`
+	// One statement for every table, because the arbitration below is one set
+	// of rules for every table. A list item that was reordered twice offline is
+	// judged by the same five lines as a chore somebody renamed.
+	//
+	//nolint:gosec // the table comes from shapeOf's closed switch, not the wire
+	load := "SELECT rev, field_revs, deleted_rev IS NOT NULL, updated_by, to_jsonb(r)" +
+		" FROM " + shape.table + " r" +
+		" WHERE household_id = $1 AND id = $2 FOR UPDATE"
 
 	var (
 		currentRev int64
@@ -62,7 +67,7 @@ func (s *Store) opSetFields(
 		return s.refuseAndTell(
 			ctx, tx, householdID, in, op, ReasonTargetGone, op.Fields)
 	case err != nil:
-		return OpResult{}, fmt.Errorf("store: loading a task: %w", err)
+		return OpResult{}, fmt.Errorf("store: loading a %s: %w", shape.entity, err)
 	}
 
 	if deleted {
@@ -77,7 +82,7 @@ func (s *Store) opSetFields(
 		}, currentRev)
 	}
 
-	plan, err := classify(op, fieldRevs, row)
+	plan, err := classify(shape, op, fieldRevs, row)
 	if err != nil {
 		return OpResult{}, err
 	}
@@ -92,7 +97,7 @@ func (s *Store) opSetFields(
 
 	rev := currentRev
 	if len(plan.applyKnown) > 0 || len(plan.applyUnknown) > 0 {
-		if err := s.writeFields(ctx, tx, householdID, in, op, plan, seq); err != nil {
+		if err := s.writeFields(ctx, tx, householdID, in, op, shape, plan, seq); err != nil {
 			return OpResult{}, err
 		}
 		rev = seq
@@ -139,7 +144,9 @@ type fieldPlan struct {
 //
 // Separated from the write so the rules can be read in one place and tested
 // without a transaction.
-func classify(op Op, fieldRevs map[string]int64, row map[string]any) (fieldPlan, error) {
+func classify(
+	shape rowShape, op Op, fieldRevs map[string]int64, row map[string]any,
+) (fieldPlan, error) {
 	plan := fieldPlan{
 		applyKnown:   map[string]any{},
 		applyUnknown: map[string]any{},
@@ -149,8 +156,9 @@ func classify(op Op, fieldRevs map[string]int64, row map[string]any) (fieldPlan,
 	}
 
 	for name, value := range op.Fields {
-		if name == "kind" {
-			// A task does not become an event by a field write.
+		if writtenOnce(shape, name) {
+			// A task does not become an event, and an item does not move to
+			// another list, by a field write. Both are set once, at creation.
 			plan.malformed = true
 			return plan, nil
 		}
@@ -166,11 +174,11 @@ func classify(op Op, fieldRevs map[string]int64, row map[string]any) (fieldPlan,
 			return plan, nil
 
 		case held == 0, seen == held:
-			_, cast, known := taskColumn(name)
+			col, known := shape.column(name)
 			if !known {
 				plan.applyUnknown[name] = value
 			} else {
-				coerced, err := coerce(cast, value)
+				coerced, err := coerce(col, value)
 				if err != nil {
 					return plan, err
 				}
@@ -193,7 +201,7 @@ func classify(op Op, fieldRevs map[string]int64, row map[string]any) (fieldPlan,
 // writeFields updates the columns a plan decided to apply.
 func (s *Store) writeFields(
 	ctx context.Context, tx pgx.Tx, householdID uuid.UUID,
-	in SyncInput, op Op, plan fieldPlan, seq int64,
+	in SyncInput, op Op, shape rowShape, plan fieldPlan, seq int64,
 ) error {
 	revs := map[string]int64{}
 	for name := range plan.applyKnown {
@@ -223,17 +231,17 @@ func (s *Store) writeFields(
 	values := []any{householdID, op.RowID, seq, in.MemberID, fieldRevs, ext}
 
 	for name, value := range plan.applyKnown {
-		column, cast, _ := taskColumn(name)
+		col, _ := shape.column(name)
 		values = append(values, value)
-		sets = append(sets, column+" = $"+strconv.Itoa(len(values))+"::"+cast)
+		sets = append(sets, col.name+" = $"+strconv.Itoa(len(values))+"::"+col.cast)
 	}
 
-	//nolint:gosec // every column name comes from taskColumn's closed switch
-	query := "UPDATE tasks SET " + strings.Join(sets, ", ") +
+	//nolint:gosec // every name comes from shapeOf and its closed column switch
+	query := "UPDATE " + shape.table + " SET " + strings.Join(sets, ", ") +
 		" WHERE household_id = $1 AND id = $2"
 
 	if _, err := tx.Exec(ctx, query, values...); err != nil {
-		return fmt.Errorf("store: writing task fields: %w", err)
+		return fmt.Errorf("store: writing %s fields: %w", shape.entity, err)
 	}
 	return nil
 }
