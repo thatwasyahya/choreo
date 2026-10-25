@@ -6,6 +6,33 @@ Mis à jour le 20 octobre 2026. À lire en premier pour reprendre à froid.
 [DECISIONS.md](DECISIONS.md). Forme du système : [ARCHITECTURE.md](ARCHITECTURE.md).
 Protocole : [SYNC_PROTOCOL.md](SYNC_PROTOCOL.md).
 
+## Phase 2 — avancement
+
+| Lot | État |
+|---|---|
+| L2.0 le pilote de synchronisation | **fait** — c'était la pièce manquante : le moteur existait, rien ne l'appelait |
+| L2.1 socle visuel | **fait** — direction « papier chaud », neuf écrans, douze images de référence |
+| L2.2 séries et récurrence | **fait** — arithmétique, rotation, création hors-ligne, écran, bout en bout |
+| L2.3 listes à cocher | pas commencée |
+| L2.4 échéances et catégories | partiel — la date s'affiche, le reste non |
+| L2.5 rappels locaux | pas commencée |
+| L2.6 rôles et membres | pas commencée |
+| L2.7 mise en ligne | pas commencée |
+
+**Trois défauts réels trouvés par les tests de cette phase**, et ils valent d'être retenus
+parce qu'aucun n'était visible à la lecture :
+
+- **Rien n'appelait le moteur de synchronisation.** Il était écrit, testé, et invoqué
+  uniquement par ses propres tests : un geste partait dans la boîte d'envoi et y restait
+  pour toujours. L'app installée était un carnet privé.
+- **Une page de synchronisation ne portait pas les séries.** Le snapshot les connaissait,
+  la page non — donc une corvée récurrente n'atteignait un téléphone que s'il reconstruisait
+  toute sa réplique. Trouvé par un test qui crée une série *par HTTP* plutôt que par un test
+  unitaire, qui avait raison sur l'arithmétique et ne voyait pas le chemin.
+- **Le fuseau d'un foyer était enregistré en abréviation** (`CEST`), c'est-à-dire une heure
+  d'été permanente. En novembre, toutes les dates auraient reculé d'une heure. Trouvé par le
+  premier usage réel sur un vrai téléphone, deux minutes après l'installation.
+
 ## Phase 1 — avancement
 
 | Lot | État |

@@ -374,3 +374,31 @@ identifiants faux pour contourner la file.
 |---|---|---|---|
 | **A1** | Durée du rafraîchissement | **180 jours** glissants, et non 60 | Le modèle de menace est un téléphone perdu, et c'est la révocation d'appareil qui y répond, pas l'expiration. Une tablette murale qu'on ne touche qu'au passage ne doit pas se déconnecter — le principe 2 ne survit pas à un grand-parent devant un écran de connexion |
 | **A2** | La récupération révoque-t-elle les autres appareils | **Oui**, défaut inchangé | Asymétrie décisive : se tromper en révoquant coûte une reconnexion, se tromper en ne révoquant pas laisse un voleur de code de secours cohabiter en silence. L'interface doit le dire avant de valider |
+
+### D-022 — Le vocabulaire gagne les séries, donc le protocole passe à 2 · Ferme
+
+Créer une corvée récurrente est une **opération**, mise en file hors-ligne comme le reste,
+et non un *endpoint*. C'est ce qui permet de régler « le mardi, c'est les poubelles » dans
+le métro. Mais ajouter une entité au vocabulaire du fil **est un incrément de version**, pas
+une retouche : le numéro est ce qui distingue « une app trop ancienne pour connaître les
+séries » de « une app qui a un bug ».
+
+Le serveur parle donc **1 et 2**. La règle « le serveur sert toujours les deux dernières
+versions de l'app » n'est pas décorative : un téléphone que personne n'a mis à jour pendant
+l'été doit continuer de marcher. Une opération `series` envoyée par un client en protocole 1
+est refusée en `unsupported_op` — **réessayable**, donc un déploiement la débloque au lieu
+d'empoisonner une file.
+
+**Le sous-ensemble de RRULE est fermé** : `FREQ` quotidien, hebdomadaire et mensuel,
+`INTERVAL`, `BYDAY` en hebdomadaire, `BYMONTHDAY` en mensuel. La norme complète porte
+`BYSETPOS`, `BYYEARDAY`, `WKST` et une dizaine d'autres axes dont aucun foyer n'a l'usage —
+et chacun est une façon pour deux clients d'être en désaccord sur le sens d'une règle. Ce
+qui sort du sous-ensemble est **refusé bruyamment**, jamais approximé : une règle que
+personne ne peut honorer exactement, c'est une série qui fait discrètement la mauvaise chose
+chaque semaine pendant un an.
+
+**Une règle illisible ne détruit jamais une validation.** À la création, elle est refusée —
+la personne est devant l'écran qui l'a produite et corrige en une seconde. À l'avancement,
+elle est avalée et l'occurrence naît sans date : la transaction porte le geste d'un humain,
+et ce geste prime sur la propreté de la donnée. Même erreur, deux réponses, parce que le
+coût n'est pas le même.
