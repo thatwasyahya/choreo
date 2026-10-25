@@ -4,11 +4,13 @@ import 'package:choreo/core/api_client.dart';
 import 'package:choreo/core/auth_api.dart';
 import 'package:choreo/core/database.dart';
 import 'package:choreo/core/notice_repository.dart';
+import 'package:choreo/core/series_repository.dart';
 import 'package:choreo/core/session.dart';
 import 'package:choreo/core/task_repository.dart';
 import 'package:choreo/features/members/member_list_screen.dart';
 import 'package:choreo/features/onboarding/household_setup_screen.dart';
 import 'package:choreo/features/onboarding/welcome_screen.dart';
+import 'package:choreo/features/tasks/repeat_screen.dart';
 import 'package:choreo/features/tasks/task_list_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -80,6 +82,8 @@ class _AppShellState extends State<AppShell> {
               repository: _tasks,
               notices: _notices,
               onShowMembers: () => unawaited(_showMembers(context, session)),
+              onRepeat: (title) =>
+                  unawaited(_showRepeat(context, session, title)),
             );
         }
       },
@@ -102,6 +106,26 @@ class _AppShellState extends State<AppShell> {
       db: widget.db,
       householdId: session.householdId,
       memberId: session.memberId,
+    );
+  }
+
+  Future<void> _showRepeat(
+    BuildContext context,
+    Session session,
+    String title,
+  ) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RepeatScreen(
+          db: widget.db,
+          title: title,
+          series: SeriesRepository(
+            db: widget.db,
+            householdId: session.householdId,
+            memberId: session.memberId,
+          ),
+        ),
+      ),
     );
   }
 

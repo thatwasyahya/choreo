@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:choreo/core/api_client.dart';
 import 'package:choreo/core/database.dart';
 import 'package:choreo/core/notice_repository.dart';
+import 'package:choreo/core/series_repository.dart';
 import 'package:choreo/core/session.dart';
 import 'package:choreo/core/task_repository.dart';
 import 'package:choreo/design/theme.dart';
@@ -14,6 +15,7 @@ import 'package:choreo/features/onboarding/credentials_screen.dart';
 import 'package:choreo/features/onboarding/household_setup_screen.dart';
 import 'package:choreo/features/onboarding/recovery_code_screen.dart';
 import 'package:choreo/features/onboarding/welcome_screen.dart';
+import 'package:choreo/features/tasks/repeat_screen.dart';
 import 'package:choreo/features/tasks/review_tray.dart';
 import 'package:choreo/features/tasks/task_list_screen.dart';
 import 'package:choreo/l10n/generated/app_localizations.dart';
@@ -290,6 +292,27 @@ void main() {
         await tester.tap(find.byType(FloatingActionButton));
         await tester.pumpAndSettle();
       },
+    );
+  });
+
+  // The deliberate path: a chore that comes back. Not part of the ten-second
+  // one, which is why it gets a screen rather than a second field.
+  testWidgets('making a chore repeat', (tester) async {
+    await seedMembers();
+    await shoot(
+      tester,
+      'repeat',
+      RepeatScreen(
+        db: db,
+        title: 'Sortir les poubelles',
+        series: SeriesRepository(
+          db: db,
+          householdId: _household,
+          memberId: _me,
+          elapsed: () => 0,
+          wallClock: () => DateTime.utc(2026, 10, 25, 9),
+        ),
+      ),
     );
   });
 

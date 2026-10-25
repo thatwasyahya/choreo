@@ -4,10 +4,12 @@ import 'dart:convert';
 import 'package:choreo/core/database.dart';
 import 'package:choreo/core/notice_repository.dart';
 import 'package:choreo/core/task_repository.dart';
+import 'package:choreo/design/tokens.dart';
 import 'package:choreo/features/tasks/new_task_sheet.dart';
 import 'package:choreo/features/tasks/review_tray.dart';
 import 'package:choreo/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 /// Everything the household has to do.
 ///
@@ -20,6 +22,7 @@ class TaskListScreen extends StatefulWidget {
     required this.repository,
     required this.notices,
     this.onShowMembers,
+    this.onRepeat,
     super.key,
   });
 
@@ -30,6 +33,10 @@ class TaskListScreen extends StatefulWidget {
   /// rather than built here: this screen reads the local database and knows
   /// nothing about accounts, and it stays testable without one.
   final VoidCallback? onShowMembers;
+
+  /// How to reach the screen where a chore is made to repeat, carrying
+  /// whatever was already typed.
+  final ValueChanged<String>? onRepeat;
 
   @override
   State<TaskListScreen> createState() => _TaskListScreenState();
@@ -100,11 +107,23 @@ class _TaskListScreenState extends State<TaskListScreen> {
   }
 
   Future<void> _create(BuildContext context) async {
-    final title = await showNewTaskSheet(context);
-    if (title == null || title.trim().isEmpty) {
+    final asked = await showNewTaskSheet(context);
+    if (asked == null) {
       return;
     }
-    await widget.repository.create(title.trim());
+
+    if (asked.repeating) {
+      if (!context.mounted || widget.onRepeat == null) {
+        return;
+      }
+      widget.onRepeat!(asked.title);
+      return;
+    }
+
+    if (asked.title.isEmpty) {
+      return;
+    }
+    await widget.repository.create(asked.title);
   }
 }
 
@@ -180,11 +199,62 @@ class _TaskRow extends StatelessWidget {
                 )
               : theme.textTheme.bodyLarge,
         ),
-        subtitle: _done
-            ? Text(l10n.doneBy(_names()), style: theme.textTheme.bodySmall)
-            : null,
+        subtitle: _subtitle(context, l10n, theme),
       ),
     );
+  }
+
+  /// The one quiet line under a chore.
+  ///
+  /// Who did it once it is done, otherwise when it is due and whether it comes
+  /// back. One line, never two: a list where every row carries three pieces of
+  /// metadata is a list nobody scans.
+  Widget? _subtitle(
+    BuildContext context,
+    AppLocalizations l10n,
+    ThemeData theme,
+  ) {
+    if (_done) {
+      return Text(l10n.doneBy(_names()), style: theme.textTheme.bodySmall);
+    }
+
+    final parts = <String>[];
+
+    final due = task.dueOn;
+    if (due != null) {
+      final day = DateTime.tryParse(due);
+      if (day != null) {
+        final locale = Localizations.localeOf(context).toLanguageTag();
+        parts.add(DateFormat.MMMEd(locale).format(day));
+      }
+    }
+    if (task.seriesId != null) {
+      parts.add(l10n.repeatBadge);
+    }
+
+    if (parts.isEmpty) {
+      return null;
+    }
+
+    // Overdue says "to catch up", never "late": product principle 6 forbids
+    // making anybody feel guilty, and this is the line where a product
+    // normally starts.
+    final overdue = _overdue(due);
+    return Text(
+      overdue ? '${l10n.catchUp} · ${parts.join(' · ')}' : parts.join(' · '),
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: overdue ? Tone.notice : null,
+      ),
+    );
+  }
+
+  static bool _overdue(String? due) {
+    final day = due == null ? null : DateTime.tryParse(due);
+    if (day == null) {
+      return false;
+    }
+    final today = DateTime.now();
+    return day.isBefore(DateTime(today.year, today.month, today.day));
   }
 
   Future<void> _toggle() {

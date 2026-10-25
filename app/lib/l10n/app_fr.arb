@@ -121,6 +121,52 @@
     }
   },
 
+  "repeatAction": "Répéter…",
+  "@repeatAction": {
+    "description": "Depuis la feuille de création. Un chemin délibéré : le principe 1 interdit d'alourdir le chemin rapide, qui reste à un seul champ."
+  },
+
+  "repeatTitle": "Ça se répète",
+  "repeatWhat": "Quoi faire ?",
+
+  "repeatDaily": "Jour",
+  "repeatWeekly": "Semaine",
+  "repeatMonthly": "Mois",
+  "repeatAfterDone": "Après la dernière fois",
+  "@repeatAfterDone": {
+    "description": "Mode relatif : compté depuis le geste, pas depuis une date prévue. « Les draps, trois semaines après la dernière fois »."
+  },
+
+  "repeatEveryDays": "{count, plural, =1{Tous les jours} other{Tous les {count} jours}}",
+  "@repeatEveryDays": { "placeholders": { "count": { "type": "int" } } },
+
+  "repeatEveryWeeks": "{count, plural, =1{Toutes les semaines} other{Toutes les {count} semaines}}",
+  "@repeatEveryWeeks": { "placeholders": { "count": { "type": "int" } } },
+
+  "repeatEveryMonths": "{count, plural, =1{Tous les mois} other{Tous les {count} mois}}",
+  "@repeatEveryMonths": { "placeholders": { "count": { "type": "int" } } },
+
+  "repeatDaysAfter": "{count, plural, =1{Un jour après} other{{count} jours après}}",
+  "@repeatDaysAfter": { "placeholders": { "count": { "type": "int" } } },
+
+  "repeatOnDays": "Les jours",
+  "repeatDayOfMonth": "Le {day} du mois",
+  "@repeatDayOfMonth": {
+    "description": "Le 31 veut dire la fin du mois : le serveur le cale plutôt que de sauter février.",
+    "placeholders": { "day": { "type": "int" } }
+  },
+
+  "repeatStartsOn": "À partir du",
+  "repeatRotation": "À tour de rôle",
+  "repeatRotationHint": "Chacun son tour, dans cet ordre. Sans personne cochée, la corvée n'est à personne en particulier.",
+  "repeatSave": "Créer la récurrence",
+
+  "repeatEvery": "Tous les",
+  "repeatBadge": "Se répète",
+  "@repeatBadge": {
+    "description": "Marque discrète sur une tâche issue d'une série."
+  },
+
   "catchUp": "À rattraper",
   "@catchUp": {
     "description": "Une échéance dépassée. On ne dit JAMAIS « en retard » : le principe 6 l'interdit explicitement."

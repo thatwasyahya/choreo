@@ -61,6 +61,39 @@
 
   "doneBy": "Done by {names}",
 
+  "repeatAction": "Repeat…",
+  "repeatTitle": "It repeats",
+  "repeatWhat": "What needs doing?",
+
+  "repeatDaily": "Day",
+  "repeatWeekly": "Week",
+  "repeatMonthly": "Month",
+  "repeatAfterDone": "After the last time",
+
+  "repeatEveryDays": "{count, plural, =1{Every day} other{Every {count} days}}",
+  "@repeatEveryDays": { "placeholders": { "count": { "type": "int" } } },
+
+  "repeatEveryWeeks": "{count, plural, =1{Every week} other{Every {count} weeks}}",
+  "@repeatEveryWeeks": { "placeholders": { "count": { "type": "int" } } },
+
+  "repeatEveryMonths": "{count, plural, =1{Every month} other{Every {count} months}}",
+  "@repeatEveryMonths": { "placeholders": { "count": { "type": "int" } } },
+
+  "repeatDaysAfter": "{count, plural, =1{One day after} other{{count} days after}}",
+  "@repeatDaysAfter": { "placeholders": { "count": { "type": "int" } } },
+
+  "repeatOnDays": "On",
+  "repeatDayOfMonth": "On the {day}",
+  "@repeatDayOfMonth": { "placeholders": { "day": { "type": "int" } } },
+
+  "repeatStartsOn": "Starting",
+  "repeatRotation": "Taking turns",
+  "repeatRotationHint": "Each in turn, in this order. With nobody ticked, the chore belongs to no one in particular.",
+  "repeatSave": "Create the repeat",
+
+  "repeatEvery": "Every",
+  "repeatBadge": "Repeats",
+
   "catchUp": "To catch up",
 
   "renameTask": "Rename",

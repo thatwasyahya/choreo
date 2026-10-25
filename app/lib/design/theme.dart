@@ -204,6 +204,25 @@ abstract final class ChoreoTheme {
         materialTapTargetSize: MaterialTapTargetSize.padded,
       ),
 
+      // Chips carry every choice on the repeat screen, and Material's default
+      // selected colour is a dark olive that belongs to no palette here. One
+      // accent: a selected chip is a wash of it, with the ink unchanged.
+      chipTheme: ChipThemeData(
+        backgroundColor: paper,
+        selectedColor: accentWash,
+        disabledColor: paper,
+        checkmarkColor: accent,
+        labelStyle: text.bodyMedium,
+        secondaryLabelStyle: text.bodyMedium,
+        side: BorderSide(color: rule),
+        shape: const RoundedRectangleBorder(borderRadius: Radii.field),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.snug,
+          vertical: Space.snug,
+        ),
+        showCheckmark: true,
+      ),
+
       listTileTheme: ListTileThemeData(
         iconColor: inkSoft,
         titleTextStyle: text.bodyLarge,
