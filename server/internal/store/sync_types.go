@@ -75,6 +75,14 @@ const (
 	OpResolveNotice = "notice_resolve"
 )
 
+// protocolSeries is the version that added recurring chores to the vocabulary.
+//
+// A client speaking protocol 1 cannot create a series, and says so by not
+// sending one. The number is what lets this server tell "an app too old to
+// know about series" from "an app with a bug", which is the whole reason
+// adding to the vocabulary is a version increment rather than a tweak.
+const protocolSeries = 2
+
 // Entities a pull returns. Completions and tags travel INSIDE their task's
 // state and have no rev of their own, so they are not listed here.
 const (

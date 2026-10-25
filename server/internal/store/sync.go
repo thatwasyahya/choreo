@@ -204,6 +204,19 @@ func nullUUID(id uuid.UUID) *uuid.UUID {
 func (s *Store) opCreate(
 	ctx context.Context, tx pgx.Tx, householdID uuid.UUID, in SyncInput, op Op,
 ) (OpResult, error) {
+	// A recurring chore is created the same way as anything else — one
+	// operation, queued offline like the rest — but it writes a different
+	// table and has to open its first occurrence, so it takes its own path.
+	if op.Entity == EntitySeries {
+		if in.Protocol < protocolSeries {
+			// An older client cannot have sent this, so it is a bug rather
+			// than a feature negotiation. Retryable all the same: the next
+			// deploy may be what fixes it.
+			return refusal(op.OpID, ReasonUnsupportedOp), nil
+		}
+		return s.opCreateSeries(ctx, tx, householdID, in, op)
+	}
+
 	if op.Entity != EntityTask {
 		return refusal(op.OpID, ReasonUnsupportedOp), nil
 	}

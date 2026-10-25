@@ -67,9 +67,14 @@ type syncResponse struct {
 }
 
 // Protocol versions this server speaks.
+//
+// Both, not just the newest: the rule is that a server always serves the last
+// two versions of the app, so a phone that has not been updated keeps working
+// while its owner is away. Version 2 added recurring chores to the operation
+// vocabulary; a client speaking 1 simply never sends one.
 const (
 	protocolMin = 1
-	protocolMax = 1
+	protocolMax = 2
 )
 
 // maxWait caps how long one request may be held open. The protocol asks for
