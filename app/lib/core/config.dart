@@ -20,4 +20,12 @@ abstract final class AppConfig {
     'CHOREO_APP_VERSION',
     defaultValue: 'dev',
   );
+
+  /// The wire vocabulary this app speaks.
+  ///
+  /// Version 2 added recurring chores. The number is what lets a server tell
+  /// "an app too old to know about series" from "an app with a bug", and it is
+  /// why adding an entity to the vocabulary is an increment rather than a
+  /// tweak. A server that only speaks 1 answers 426 and says what it has.
+  static const int protocol = 2;
 }

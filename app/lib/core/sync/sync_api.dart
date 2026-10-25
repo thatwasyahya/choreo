@@ -162,7 +162,7 @@ class SyncApi {
               'Authorization': 'Bearer $accessToken',
             },
             body: jsonEncode({
-              'protocol': 1,
+              'protocol': AppConfig.protocol,
               'app_version': AppConfig.version,
               'cursor_seq': cursorSeq,
               'limit': limit,

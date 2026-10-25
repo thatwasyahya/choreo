@@ -242,6 +242,8 @@ class SyncEngine {
     switch (change.entity) {
       case 'task':
         await _applyTask(householdId, change);
+      case 'series':
+        await _applySeries(householdId, change);
       case 'member':
         await _applyMember(householdId, change);
       case 'notice':
@@ -325,6 +327,85 @@ class SyncEngine {
     );
 
     await db.into(db.tasks).insertOnConflictUpdate(companion);
+  }
+
+  /// A recurring chore's schedule.
+  ///
+  /// `nextIndex` and `openOccurrenceId` are mirrored and never written by this
+  /// app: they are the invariant the server arbitrates, and a client that
+  /// wrote them would be a client that can break it. They are here so a screen
+  /// can say "the next one is open" without asking the network.
+  Future<void> _applySeries(String householdId, RowChange change) async {
+    final local =
+        await (db.select(db.seriesRows)
+              ..where((s) => s.householdId.equals(householdId))
+              ..where((s) => s.id.equals(change.rowId)))
+            .getSingleOrNull();
+    if (local != null && change.rev <= local.rev) {
+      return;
+    }
+
+    final pending = local == null
+        ? const <String>[]
+        : (jsonDecode(local.pendingFields) as List<dynamic>).cast<String>();
+
+    final state = change.state;
+    T? keep<T>(String field, T? incoming, T? current) {
+      return pending.contains(field) ? current : incoming;
+    }
+
+    await db
+        .into(db.seriesRows)
+        .insertOnConflictUpdate(
+          SeriesRowsCompanion(
+            id: Value(change.rowId),
+            householdId: Value(householdId),
+            rev: Value(change.rev),
+            createdRev: Value(local?.createdRev ?? change.rev),
+            deletedRev: Value(change.deleted ? change.rev : null),
+            fieldRevs: Value(jsonEncode(state['field_revs'] ?? const {})),
+            ext: Value(jsonEncode(state['ext'] ?? const {})),
+            pendingFields: Value(local?.pendingFields ?? '[]'),
+            title: Value(
+              keep('title', state['title'] as String?, local?.title) ?? '',
+            ),
+            mode: Value(
+              keep('mode', state['mode'] as String?, local?.mode) ?? 'calendar',
+            ),
+            rule: Value(
+              keep('rule', state['rule'] as String?, local?.rule) ?? '',
+            ),
+            relDays: Value(
+              keep(
+                'rel_days',
+                (state['rel_days'] as num?)?.toInt(),
+                local?.relDays,
+              ),
+            ),
+            anchorOn: Value(
+              keep('anchor_on', state['anchor_on'] as String?, local?.anchorOn),
+            ),
+            rotation: Value(jsonEncode(state['rotation'] ?? const [])),
+            rotationOffset: Value(
+              (state['rotation_offset'] as num?)?.toInt() ?? 0,
+            ),
+            paused: Value(
+              keep(
+                    'paused',
+                    (state['paused'] as bool? ?? false) ? 1 : 0,
+                    local?.paused,
+                  ) ??
+                  0,
+            ),
+            catchUp: Value(
+              keep('catch_up', state['catch_up'] as String?, local?.catchUp) ??
+                  'skip',
+            ),
+            // Mirrored, never written by this app.
+            nextIndex: Value((state['next_index'] as num?)?.toInt() ?? 0),
+            openOccurrenceId: Value(state['open_occurrence_id'] as String?),
+          ),
+        );
   }
 
   Future<void> _applyMember(String householdId, RowChange change) async {
