@@ -9,6 +9,16 @@
 
 set -euo pipefail
 
+# A hook runs in whatever shell git hands it, and that shell does not read
+# .bashrc — the same trap as `bash -lc`. Without this line gitleaks is missing
+# from PATH whenever the commit comes from a script or an editor rather than
+# from a terminal somebody had already set up, and the hook then refuses an
+# honest commit with a message blaming the machine.
+if [ -f "${HOME}/.config/choreo/dev-env.sh" ]; then
+  # shellcheck source=/dev/null
+  . "${HOME}/.config/choreo/dev-env.sh"
+fi
+
 if ! command -v gitleaks >/dev/null 2>&1; then
   echo "pre-commit: gitleaks is missing. Run ./scripts/bootstrap-dev.sh" >&2
   exit 1
